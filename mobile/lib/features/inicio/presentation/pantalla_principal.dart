@@ -1269,7 +1269,9 @@ class _VistaSolicitarGuardiaState extends State<VistaSolicitarGuardia> {
           futuroSolicitudes = solicitudGuardiaApi.listarSolicitudes();
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Solicitud enviada a central')),
+          const SnackBar(
+            content: Text('Solicitud enviada al guardia con copia a central'),
+          ),
         );
       }
     } on ExcepcionApi catch (error) {
@@ -1589,6 +1591,8 @@ class _VistaEscanerQrGuardiaState extends State<VistaEscanerQrGuardia> {
                     etiqueta: 'Bicicletero',
                     valor: qr.bicicleteroNombre ?? 'Asignacion del guardia',
                   ),
+                  const SizedBox(height: 14),
+                  _FichaVerificacionBicicleta(qr: qr),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () => _confirmarQr(qr),
@@ -1736,6 +1740,118 @@ class _VistaEscanerQrGuardiaState extends State<VistaEscanerQrGuardia> {
           ),
         );
       },
+    );
+  }
+}
+
+class _FichaVerificacionBicicleta extends StatelessWidget {
+  const _FichaVerificacionBicicleta({required this.qr});
+
+  final QrValidadoApp qr;
+
+  @override
+  Widget build(BuildContext context) {
+    final foto = qr.bicicletaFotoUrl;
+    final tieneFoto = foto != null && foto.startsWith('data:image');
+    final detalles = <Widget>[
+      if (qr.bicicletaMarca?.isNotEmpty == true)
+        ChipEstado(texto: qr.bicicletaMarca!, color: ColoresUbb.azulApp),
+      if (qr.bicicletaModelo?.isNotEmpty == true)
+        ChipEstado(texto: qr.bicicletaModelo!, color: ColoresUbb.azulMedio),
+      if (qr.bicicletaColor?.isNotEmpty == true)
+        ChipEstado(texto: qr.bicicletaColor!, color: ColoresUbb.turquesa),
+      if (qr.bicicletaAro?.isNotEmpty == true)
+        ChipEstado(texto: 'Aro ${qr.bicicletaAro}', color: ColoresUbb.exito),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: ColoresUbb.superficieAzulSuave,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: ColoresUbb.borde),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Verificacion de bicicleta',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final contenido = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    qr.bicicletaDescripcion,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w900),
+                  ),
+                  if (detalles.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(spacing: 8, runSpacing: 8, children: detalles),
+                  ],
+                  if (qr.bicicletaNumeroSerie?.isNotEmpty == true) ...[
+                    const SizedBox(height: 10),
+                    _FilaDato(
+                      etiqueta: 'Serie',
+                      valor: qr.bicicletaNumeroSerie!,
+                    ),
+                  ],
+                ],
+              );
+
+              final fotoWidget = ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 112,
+                  height: 112,
+                  child: tieneFoto
+                      ? Image.memory(
+                          base64Decode(foto.split(',').last),
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          color: ColoresUbb.superficie,
+                          child: const Icon(
+                            Icons.pedal_bike_outlined,
+                            color: ColoresUbb.azulApp,
+                            size: 48,
+                          ),
+                        ),
+                ),
+              );
+
+              if (constraints.maxWidth < 520) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(alignment: Alignment.centerLeft, child: fotoWidget),
+                    const SizedBox(height: 12),
+                    contenido,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  fotoWidget,
+                  const SizedBox(width: 14),
+                  Expanded(child: contenido),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2594,6 +2710,8 @@ class _VistaSolicitudesCentralState extends State<VistaSolicitudesCentral> {
                       child: _TarjetaSolicitudGuardia(
                         solicitud: solicitud,
                         mostrarSolicitante: true,
+                        permitirNotificarCentral: true,
+                        mostrarAccionesGuardia: false,
                         onActualizar: (estado) async {
                           await solicitudGuardiaApi.actualizarEstado(
                             solicitudId: solicitud.id,
@@ -3112,11 +3230,15 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
   const _TarjetaSolicitudGuardia({
     required this.solicitud,
     this.mostrarSolicitante = false,
+    this.permitirNotificarCentral = false,
+    this.mostrarAccionesGuardia = true,
     this.onActualizar,
   });
 
   final SolicitudGuardiaApp solicitud;
   final bool mostrarSolicitante;
+  final bool permitirNotificarCentral;
+  final bool mostrarAccionesGuardia;
   final Future<void> Function(String estado)? onActualizar;
 
   @override
@@ -3177,6 +3299,20 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
                 valor: solicitud.guardiaAsignado!.nombre,
               ),
             ],
+            if (solicitud.notificadaGuardiaEn != null) ...[
+              const SizedBox(height: 8),
+              _FilaDato(
+                etiqueta: 'Notificado',
+                valor: _formatearFecha(solicitud.notificadaGuardiaEn!),
+              ),
+            ],
+            if (solicitud.acuseReciboEn != null) ...[
+              const SizedBox(height: 8),
+              _FilaDato(
+                etiqueta: 'Acuse recibo',
+                valor: _formatearFecha(solicitud.acuseReciboEn!),
+              ),
+            ],
             if (solicitud.guardiasAsignados.isNotEmpty) ...[
               const SizedBox(height: 8),
               _FilaDato(
@@ -3199,33 +3335,36 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
                 spacing: 10,
                 runSpacing: 10,
                 children: [
-                  if (solicitud.guardiaAsignado != null)
+                  if (permitirNotificarCentral &&
+                      solicitud.guardiaAsignado != null)
                     OutlinedButton.icon(
-                      onPressed: solicitud.estado == 'NOTIFICADA'
-                          ? null
-                          : () => _actualizar(context, 'NOTIFICADA'),
+                      onPressed: solicitud.puedeNotificarGuardia
+                          ? () => _actualizar(context, 'NOTIFICADA')
+                          : null,
                       icon: const Icon(Icons.notifications_active_outlined),
-                      label: const Text('Notificar'),
+                      label: Text(_textoBotonNotificarGuardia(solicitud)),
                     ),
-                  OutlinedButton.icon(
-                    onPressed: solicitud.estado == 'VISTA'
-                        ? null
-                        : () => _actualizar(context, 'VISTA'),
-                    icon: const Icon(Icons.visibility_outlined),
-                    label: const Text('Vista'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: solicitud.estado == 'EN_CAMINO'
-                        ? null
-                        : () => _actualizar(context, 'EN_CAMINO'),
-                    icon: const Icon(Icons.directions_walk),
-                    label: const Text('En camino'),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => _actualizar(context, 'RESUELTA'),
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Resolver'),
-                  ),
+                  if (mostrarAccionesGuardia) ...[
+                    OutlinedButton.icon(
+                      onPressed: solicitud.estado == 'VISTA'
+                          ? null
+                          : () => _actualizar(context, 'VISTA'),
+                      icon: const Icon(Icons.mark_email_read_outlined),
+                      label: const Text('Acusar recibo'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: solicitud.estado == 'EN_CAMINO'
+                          ? null
+                          : () => _actualizar(context, 'EN_CAMINO'),
+                      icon: const Icon(Icons.directions_walk),
+                      label: const Text('En camino'),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => _actualizar(context, 'RESUELTA'),
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('Resolver'),
+                    ),
+                  ],
                 ],
               ),
             ],
@@ -3260,6 +3399,22 @@ String _etiquetaTipoSolicitud(String tipo) {
     'REQUIERE_SERVICIO' => 'Requiere servicio',
     _ => tipo,
   };
+}
+
+String _textoBotonNotificarGuardia(SolicitudGuardiaApp solicitud) {
+  final segundos = solicitud.segundosParaNotificarGuardia;
+
+  if (solicitud.acuseReciboEn != null ||
+      solicitud.estado == 'VISTA' ||
+      solicitud.estado == 'EN_CAMINO') {
+    return 'Acuse recibido';
+  }
+
+  if (segundos != null && segundos > 0) {
+    return 'Re-notificar en ${segundos}s';
+  }
+
+  return 'Notificar guardia';
 }
 
 String _etiquetaEstadoSolicitud(String estado) {

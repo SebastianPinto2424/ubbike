@@ -1,5 +1,6 @@
 import { ErrorHttp } from '../../comun/errors/error-http';
 import { fuenteDatos } from '../../configuracion/base-datos';
+import { registrarAuditoria } from '../auditoria/auditoria.servicio';
 import { crearNotificacion } from '../notificaciones/notificacion.servicio';
 import { TipoNotificacion } from '../notificaciones/tipo-notificacion';
 import { mapearUsuarioPublico } from './usuario.mapeador';
@@ -29,7 +30,8 @@ export const listarUsuarios = async () => {
 
 export const actualizarPermisosUsuario = async (
   usuarioId: string,
-  datos: DatosActualizarPermisos
+  datos: DatosActualizarPermisos,
+  actorUsuarioId?: string
 ) => {
   const repositorio = repositorioUsuarios();
   const usuario = await repositorio.findOneBy({ id: usuarioId });
@@ -38,7 +40,10 @@ export const actualizarPermisosUsuario = async (
     throw new ErrorHttp(404, 'Usuario no encontrado');
   }
 
+  let invalidarSesiones = false;
+
   if (datos.rol !== undefined) {
+    invalidarSesiones = invalidarSesiones || usuario.rol !== datos.rol;
     usuario.rol = datos.rol;
   }
 
@@ -47,7 +52,9 @@ export const actualizarPermisosUsuario = async (
   }
 
   if (datos.correo !== undefined) {
-    usuario.correo = datos.correo.toLowerCase();
+    const correoNormalizado = datos.correo.toLowerCase();
+    invalidarSesiones = invalidarSesiones || usuario.correo !== correoNormalizado;
+    usuario.correo = correoNormalizado;
   }
 
   if (datos.rut !== undefined) {
@@ -55,14 +62,20 @@ export const actualizarPermisosUsuario = async (
   }
 
   if (datos.cuentaActiva !== undefined) {
+    invalidarSesiones = invalidarSesiones || usuario.cuentaActiva !== datos.cuentaActiva;
     usuario.cuentaActiva = datos.cuentaActiva;
   }
 
   if (datos.correoVerificado !== undefined) {
+    invalidarSesiones = invalidarSesiones || usuario.correoVerificado !== datos.correoVerificado;
     usuario.correoVerificado = datos.correoVerificado;
     if (datos.correoVerificado) {
       usuario.tokenVerificacionCorreo = null;
     }
+  }
+
+  if (invalidarSesiones) {
+    usuario.versionSesion += 1;
   }
 
   const usuarioGuardado = await repositorio.save(usuario);
@@ -76,6 +89,20 @@ export const actualizarPermisosUsuario = async (
       rol: usuarioGuardado.rol,
       cuentaActiva: usuarioGuardado.cuentaActiva,
       correoVerificado: usuarioGuardado.correoVerificado
+    }
+  });
+
+  await registrarAuditoria({
+    actorUsuarioId: actorUsuarioId ?? null,
+    accion: 'USUARIO_ACTUALIZADO_ADMIN',
+    entidad: 'usuarios',
+    entidadId: usuarioGuardado.id,
+    datos: {
+      campos: Object.keys(datos),
+      rol: usuarioGuardado.rol,
+      cuentaActiva: usuarioGuardado.cuentaActiva,
+      correoVerificado: usuarioGuardado.correoVerificado,
+      sesionesInvalidadas: invalidarSesiones
     }
   });
 

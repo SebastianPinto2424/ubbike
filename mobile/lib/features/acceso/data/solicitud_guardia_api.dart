@@ -11,9 +11,13 @@ class SolicitudGuardiaApp {
     required this.bicicletero,
     required this.solicitante,
     required this.creadaEn,
+    required this.puedeNotificarGuardia,
     this.guardiaAsignado,
     this.mensaje,
+    this.notificadaGuardiaEn,
+    this.acuseReciboEn,
     this.resueltaEn,
+    this.segundosParaNotificarGuardia,
     this.guardiasAsignados = const [],
   });
 
@@ -26,7 +30,11 @@ class SolicitudGuardiaApp {
   final UsuarioApp? guardiaAsignado;
   final List<UsuarioApp> guardiasAsignados;
   final DateTime creadaEn;
+  final DateTime? notificadaGuardiaEn;
+  final DateTime? acuseReciboEn;
   final DateTime? resueltaEn;
+  final bool puedeNotificarGuardia;
+  final int? segundosParaNotificarGuardia;
 
   factory SolicitudGuardiaApp.desdeJson(Map<String, dynamic> json) {
     final guardia = json['guardiaAsignado'] as Map<String, dynamic>?;
@@ -49,9 +57,18 @@ class SolicitudGuardiaApp {
           .map(UsuarioApp.desdeJson)
           .toList(),
       creadaEn: DateTime.parse(json['creadaEn'] as String),
+      notificadaGuardiaEn: json['notificadaGuardiaEn'] == null
+          ? null
+          : DateTime.parse(json['notificadaGuardiaEn'] as String),
+      acuseReciboEn: json['acuseReciboEn'] == null
+          ? null
+          : DateTime.parse(json['acuseReciboEn'] as String),
       resueltaEn: json['resueltaEn'] == null
           ? null
           : DateTime.parse(json['resueltaEn'] as String),
+      puedeNotificarGuardia: json['puedeNotificarGuardia'] as bool? ?? false,
+      segundosParaNotificarGuardia:
+          json['segundosParaNotificarGuardia'] as int?,
     );
   }
 }

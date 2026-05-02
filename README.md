@@ -8,25 +8,82 @@ Aplicacion movil y backend para gestionar el ingreso y retiro de bicicletas en l
 - `mobile/`: aplicacion Flutter Web/Mobile con vistas por rol.
 - `docs/`: documentacion del proyecto y decisiones tecnicas.
 
-## Arranque completo con Docker
+## Despliegue con Docker (Paso a paso)
+
+Para levantar el proyecto completo (Base de datos, Backend, Frontend y Correos) sin necesidad de instalar herramientas externas, sigue estos pasos:
+
+1. Instala y asegúrate de tener abierto **Docker Desktop**.
+2. Abre una terminal en la carpeta principal `ubbike`.
+3. Ejecuta el siguiente comando para construir y levantar todo en segundo plano:
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 ```
 
-Servicios locales:
+### Comandos útiles de Git y Docker
 
-- App web: `http://localhost:8081`
-- Backend: `http://localhost:3000`
-- Mailpit correos locales: `http://localhost:8025`
-- PostgreSQL: `localhost:5432`
+- **Aplicar nuevos cambios en el código:**
+  ```bash
+  docker compose up -d --build
+  ```
+- **Reconstrucción limpia (SIN CACHÉ):** Si cambiaste dependencias pesadas y no se reflejan, fuerza la reconstrucción:
+  ```bash
+  docker compose build --no-cache
+  docker compose up -d
+  ```
+- **Detener el proyecto (conserva datos):**
+  ```bash
+  docker compose down
+  ```
+- **Reset total (Borra datos):** Elimina contenedores y reinicia la base de datos a cero.
+  ```bash
+  docker compose down -v
+  ```
 
-Docker levanta:
+### Modo seguro local
 
+El proyecto queda configurado con una postura segura incluso en local:
+
+- El backend corre con `NODE_ENV=production`.
+- `DB_SYNCHRONIZE=false` evita cambios automaticos destructivos de esquema.
+- El backend ejecuta migraciones versionadas al arrancar.
+- `SEED_DEMO_DATA=false` evita recrear cuentas demo automaticamente.
+- Docker publica puertos solo en `127.0.0.1`.
+- El frontend Nginx corre sin privilegios y con headers de seguridad.
+- El backend corre como usuario no root y con filesystem de solo lectura.
+- `JWT_SECRET` y `POSTGRES_PASSWORD` deben venir desde archivos `.env` locales.
+
+Si borras el volumen de base de datos con `docker compose down -v`, el backend
+vuelve a crear el esquema mediante migraciones. No uses `DB_SYNCHRONIZE=true`
+para publicar.
+
+### Produccion y publicacion
+
+Para publicar en un servidor usa el compose endurecido:
+
+```bash
+docker compose -f docker-compose.prod.yml build --no-cache
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Antes de publicar, reemplaza los valores de `.env.example` y
+`backend/.env.example`, configura SMTP real, HTTPS y backups. La guia completa
+esta en `docs/produccion.md`.
+
+### Enlaces de acceso local
+
+Una vez ejecutado el despliegue, podrás acceder a los siguientes servicios desde tu navegador:
+
+- **Aplicación Web (Frontend):** [http://localhost:8081](http://localhost:8081)
+- **Correos de prueba (Mailpit):** [http://localhost:8025](http://localhost:8025)
+- **Backend (API Base):** [http://localhost:3000](http://localhost:3000)
+- **Base de datos (PorsgreSQL):** `localhost:5432`
+
+Docker levanta automáticamente:
 - `db`: PostgreSQL con volumen `postgres_data`.
 - `backend`: API REST UBBike.
-- `mobile`: build Flutter Web servido por Nginx.
-- `mailpit`: servidor SMTP local para ver correos de verificacion y cambio de contrasena.
+- `mobile`: Build Flutter Web servido por Nginx.
+- `mailpit`: Servidor SMTP local para recibir correos de registro y cambio de contraseñas.
 
 ## Credenciales de prueba
 
@@ -110,6 +167,9 @@ Tambien se mantienen alias temporales en ingles para no romper pruebas previas: 
 7. El administrador puede gestionar roles, permisos, estado de cuenta y verificacion de correo.
 
 ## Modelo relacional base
+
+El MR completo esta documentado en `docs/modelo-relacional.md`. El modelo real
+que crea las tablas vive en las entidades TypeORM de `backend/src/modulos`.
 
 El backend ya considera:
 

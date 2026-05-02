@@ -52,6 +52,12 @@ export class SolicitudGuardia {
   @Column({ type: 'text', nullable: true })
   mensaje!: string | null;
 
+  @Column({ name: 'notificada_guardia_en', type: 'timestamp with time zone', nullable: true })
+  notificadaGuardiaEn!: Date | null;
+
+  @Column({ name: 'acuse_recibo_en', type: 'timestamp with time zone', nullable: true })
+  acuseReciboEn!: Date | null;
+
   @Column({ name: 'resuelta_en', type: 'timestamp with time zone', nullable: true })
   resueltaEn!: Date | null;
 

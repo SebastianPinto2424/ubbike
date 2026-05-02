@@ -11,7 +11,8 @@ export const confirmarAccesoQr = async (
     const movimiento = await confirmarQr({
       token: req.body.token,
       bicicleteroId: req.body.bicicleteroId,
-      guardiaId: req.usuario!.usuarioId
+      guardiaId: req.usuario!.usuarioId,
+      rol: req.usuario!.rol
     });
 
     return res.status(201).json({ movimiento });
@@ -30,7 +31,8 @@ export const denegarAccesoQr = async (
       token: req.body.token,
       motivo: req.body.motivo,
       bicicleteroId: req.body.bicicleteroId,
-      guardiaId: req.usuario!.usuarioId
+      guardiaId: req.usuario!.usuarioId,
+      rol: req.usuario!.rol
     });
 
     return res.status(201).json({ movimiento });
@@ -47,6 +49,7 @@ export const registrarManual = async (
   try {
     const movimiento = await registrarGestionManual({
       guardiaId: req.usuario!.usuarioId,
+      rol: req.usuario!.rol,
       correo: req.body.correo,
       rut: req.body.rut,
       bicicletaId: req.body.bicicletaId,

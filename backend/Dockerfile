@@ -18,8 +18,10 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-COPY --from=deps /app/dist ./dist
+COPY --from=deps --chown=node:node /app/dist ./dist
+
+USER node
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "dist/servidor.js"]

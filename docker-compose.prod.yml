@@ -7,8 +7,6 @@ services:
       POSTGRES_DB: ubbike
       POSTGRES_USER: ubbike
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}
-    ports:
-      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -34,10 +32,6 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}
       DB_SYNCHRONIZE: "false"
       SEED_DEMO_DATA: "false"
-      SMTP_HOST: mailpit
-      SMTP_PORT: 1025
-      FRONTEND_URL: http://localhost:8081
-      CORS_ORIGINS: http://localhost:8081,http://127.0.0.1:8081
     ports:
       - "127.0.0.1:3000:3000"
     read_only: true
@@ -50,8 +44,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      mailpit:
-        condition: service_started
     healthcheck:
       test:
         [
@@ -70,7 +62,7 @@ services:
     build:
       context: ./mobile
       args:
-        API_BASE_URL: http://localhost:3000
+        API_BASE_URL: ${PUBLIC_API_BASE_URL:?Define PUBLIC_API_BASE_URL en .env}
     container_name: ubbike_mobile
     restart: unless-stopped
     ports:
@@ -85,21 +77,8 @@ services:
     security_opt:
       - no-new-privileges:true
     depends_on:
-      - backend
-    networks:
-      - ubbike_network
-
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: ubbike_mailpit
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8025:8025"
-      - "127.0.0.1:1025:1025"
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
+      backend:
+        condition: service_healthy
     networks:
       - ubbike_network
 

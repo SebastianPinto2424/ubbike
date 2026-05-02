@@ -111,7 +111,13 @@ export const generarQrTemporal = async (datos: DatosGenerarQr) => {
     expiraEn: codigo.expiraEn,
     bicicleta: {
       id: bicicleta.id,
-      descripcion: bicicleta.descripcion
+      descripcion: bicicleta.descripcion,
+      marca: bicicleta.marca,
+      modelo: bicicleta.modelo,
+      color: bicicleta.color,
+      aro: bicicleta.aro,
+      numeroSerie: bicicleta.numeroSerie,
+      fotoUrl: bicicleta.fotoUrl
     },
     bicicletero: bicicletero
       ? {
@@ -139,6 +145,11 @@ export const validarQrTemporal = async (token: string) => {
     bicicleta: {
       id: codigo.bicicleta.id,
       descripcion: codigo.bicicleta.descripcion,
+      marca: codigo.bicicleta.marca,
+      modelo: codigo.bicicleta.modelo,
+      color: codigo.bicicleta.color,
+      aro: codigo.bicicleta.aro,
+      numeroSerie: codigo.bicicleta.numeroSerie,
       fotoUrl: codigo.bicicleta.fotoUrl
     },
     bicicletero: codigo.bicicletero

@@ -44,6 +44,9 @@ export class Usuario {
   @Column({ name: 'cuenta_activa', default: true })
   cuentaActiva!: boolean;
 
+  @Column({ name: 'version_sesion', default: 0 })
+  versionSesion!: number;
+
   @Column({
     name: 'token_verificacion_correo',
     type: 'varchar',

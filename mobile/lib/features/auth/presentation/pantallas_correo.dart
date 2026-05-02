@@ -92,8 +92,14 @@ class _PantallaCambiarContrasenaState extends State<PantallaCambiarContrasena> {
   }
 
   Future<void> _cambiar() async {
-    if (contrasenaController.text.length < 8) {
-      _mostrarMensaje('La contrasena debe tener al menos 8 caracteres');
+    final segura = RegExp(
+      r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$',
+    );
+
+    if (!segura.hasMatch(contrasenaController.text)) {
+      _mostrarMensaje(
+        'Minimo 12 caracteres con mayuscula, minuscula, numero y simbolo',
+      );
       return;
     }
 

@@ -11,12 +11,23 @@ import { rutasAcceso } from './modulos/acceso/acceso.rutas';
 import { rutasSolicitudesGuardia } from './modulos/acceso/solicitud-guardia.rutas';
 import { rutasUsuarios } from './modulos/usuarios/usuario.rutas';
 import { middlewareErrores } from './comun/middlewares/errores.middleware';
+import { entorno } from './configuracion/entorno';
 
 const aplicacion = express();
 
 aplicacion.use(helmet());
-aplicacion.use(cors());
-aplicacion.use(express.json());
+aplicacion.use(
+  cors({
+    origin: (origen, callback) => {
+      if (!origen || entorno.cors.origenes.includes(origen)) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
+    }
+  })
+);
+aplicacion.use(express.json({ limit: '2mb' }));
 
 aplicacion.get(['/salud', '/health'], (_req: Request, res: Response) => {
   return res.status(200).json({

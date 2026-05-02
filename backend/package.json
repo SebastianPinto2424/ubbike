@@ -7,6 +7,8 @@
     "dev": "tsx watch src/servidor.ts",
     "build": "tsc",
     "start": "node dist/servidor.js",
+    "migrate": "node dist/configuracion/ejecutar-migraciones.js",
+    "migrate:dev": "tsx src/configuracion/ejecutar-migraciones.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\""
@@ -32,6 +34,9 @@
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
     "typeorm": "^0.3.20"
+  },
+  "overrides": {
+    "uuid": "14.0.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

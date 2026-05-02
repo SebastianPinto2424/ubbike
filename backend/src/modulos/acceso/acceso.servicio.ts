@@ -1,5 +1,6 @@
 import { ErrorHttp } from '../../comun/errors/error-http';
 import { fuenteDatos } from '../../configuracion/base-datos';
+import { registrarAuditoria } from '../auditoria/auditoria.servicio';
 import { Bicicleta } from '../bicicletas/bicicleta.entidad';
 import { Bicicletero } from '../bicicleteros/bicicletero.entidad';
 import { EstadoMovimiento } from '../historial/estado-movimiento';
@@ -10,11 +11,13 @@ import { TipoNotificacion } from '../notificaciones/tipo-notificacion';
 import { CodigoQrTemporal } from '../qr/codigo-qr-temporal.entidad';
 import { obtenerCodigoQrValido } from '../qr/qr.servicio';
 import { Usuario } from '../usuarios/usuario.entidad';
+import { RolUsuario } from '../usuarios/rol-usuario';
 import { AsignacionGuardia } from './asignacion-guardia.entidad';
 
 type DatosConfirmarQr = {
   token: string;
   guardiaId: string;
+  rol: string;
   bicicleteroId?: string;
 };
 
@@ -24,6 +27,7 @@ type DatosDenegarQr = DatosConfirmarQr & {
 
 type DatosGestionManual = {
   guardiaId: string;
+  rol: string;
   correo?: string;
   rut?: string;
   bicicletaId?: string;
@@ -70,18 +74,40 @@ const mapearMovimiento = (movimiento: Movimiento) => ({
 
 const obtenerBicicleteroOperacion = async (
   guardiaId: string,
+  rol: string,
   bicicleteroId?: string,
   bicicleteroQr?: Bicicletero | null
 ) => {
+  const validarAsignacionGuardia = async (bicicletero: Bicicletero) => {
+    if (rol !== RolUsuario.GUARDIA) {
+      return;
+    }
+
+    const asignacion = await repoAsignaciones().findOne({
+      where: {
+        guardia: { id: guardiaId },
+        bicicletero: { id: bicicletero.id },
+        activa: true
+      }
+    });
+
+    if (!asignacion) {
+      throw new ErrorHttp(403, 'El guardia no esta asignado a este bicicletero');
+    }
+  };
+
   if (bicicleteroId) {
     const bicicletero = await repoBicicleteros().findOneBy({ id: bicicleteroId });
     if (!bicicletero) {
       throw new ErrorHttp(404, 'Bicicletero no encontrado');
     }
+
+    await validarAsignacionGuardia(bicicletero);
     return bicicletero;
   }
 
   if (bicicleteroQr) {
+    await validarAsignacionGuardia(bicicleteroQr);
     return bicicleteroQr;
   }
 
@@ -177,6 +203,22 @@ const registrarMovimiento = async ({
     }
   });
 
+  await registrarAuditoria({
+    actorUsuarioId: guardiaId,
+    accion:
+      estado === EstadoMovimiento.CONFIRMADO ? 'MOVIMIENTO_CONFIRMADO' : 'MOVIMIENTO_DENEGADO',
+    entidad: 'movimientos',
+    entidadId: movimiento.id,
+    datos: {
+      usuarioId: usuario.id,
+      bicicletaId: bicicleta.id,
+      bicicleteroId: bicicletero.id,
+      tipo,
+      estado,
+      origen
+    }
+  });
+
   const movimientoCompleto = await repoMovimientos().findOneOrFail({
     where: { id: movimiento.id },
     relations: {
@@ -194,6 +236,7 @@ export const confirmarQr = async (datos: DatosConfirmarQr) => {
   const codigo = await obtenerCodigoQrValido(datos.token);
   const bicicletero = await obtenerBicicleteroOperacion(
     datos.guardiaId,
+    datos.rol,
     datos.bicicleteroId,
     codigo.bicicletero
   );
@@ -220,6 +263,7 @@ export const denegarQr = async (datos: DatosDenegarQr) => {
   const codigo = await obtenerCodigoQrValido(datos.token);
   const bicicletero = await obtenerBicicleteroOperacion(
     datos.guardiaId,
+    datos.rol,
     datos.bicicleteroId,
     codigo.bicicletero
   );
@@ -275,6 +319,7 @@ export const registrarGestionManual = async (datos: DatosGestionManual) => {
 
   const bicicletero = await obtenerBicicleteroOperacion(
     datos.guardiaId,
+    datos.rol,
     datos.bicicleteroId,
     bicicleta.bicicleteroActual
   );

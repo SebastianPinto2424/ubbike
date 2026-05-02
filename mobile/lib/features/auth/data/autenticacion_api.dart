@@ -1,5 +1,4 @@
 import '../../../core/servicios/cliente_api.dart';
-import '../../../shared/modelos/rol_usuario.dart';
 import '../../../shared/modelos/usuario_app.dart';
 
 class ResultadoLogin {
@@ -39,7 +38,6 @@ class AutenticacionApi {
     required String rut,
     required String correo,
     required String contrasena,
-    required RolUsuario rol,
   }) async {
     final respuesta = await cliente.post(
       '/autenticacion/registro',
@@ -48,7 +46,6 @@ class AutenticacionApi {
         'rut': rut,
         'correo': correo,
         'contrasena': contrasena,
-        'rol': rol.valorApi,
       },
     );
 

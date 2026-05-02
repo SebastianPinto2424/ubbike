@@ -12,7 +12,11 @@ export const listar = async (_req: Request, res: Response, next: NextFunction) =
 
 export const actualizarPermisos = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const usuario = await actualizarPermisosUsuario(req.params.id, req.body);
+    const usuario = await actualizarPermisosUsuario(
+      req.params.id,
+      req.body,
+      req.usuario?.usuarioId
+    );
     return res.status(200).json({ usuario });
   } catch (error) {
     return next(error);
