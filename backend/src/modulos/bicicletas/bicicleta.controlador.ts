@@ -36,6 +36,11 @@ export const crear = async (req: SolicitudAutenticada, res: Response, next: Next
     const bicicleta = await crearBicicleta({
       usuarioId: req.usuario!.usuarioId,
       descripcion: req.body.descripcion,
+      marca: req.body.marca,
+      modelo: req.body.modelo,
+      color: req.body.color,
+      aro: req.body.aro,
+      numeroSerie: req.body.numeroSerie,
       fotoUrl: req.body.fotoUrl,
       activar: req.body.activar
     });
@@ -46,28 +51,16 @@ export const crear = async (req: SolicitudAutenticada, res: Response, next: Next
   }
 };
 
-export const actualizar = async (
-  req: SolicitudAutenticada,
-  res: Response,
-  next: NextFunction
-) => {
+export const actualizar = async (req: SolicitudAutenticada, res: Response, next: NextFunction) => {
   try {
-    const bicicleta = await actualizarBicicleta(
-      req.usuario!.usuarioId,
-      req.params.id,
-      req.body
-    );
+    const bicicleta = await actualizarBicicleta(req.usuario!.usuarioId, req.params.id, req.body);
     return res.status(200).json({ bicicleta });
   } catch (error) {
     return next(error);
   }
 };
 
-export const eliminar = async (
-  req: SolicitudAutenticada,
-  res: Response,
-  next: NextFunction
-) => {
+export const eliminar = async (req: SolicitudAutenticada, res: Response, next: NextFunction) => {
   try {
     const resultado = await eliminarBicicleta(req.usuario!.usuarioId, req.params.id);
     return res.status(200).json(resultado);
@@ -76,11 +69,7 @@ export const eliminar = async (
   }
 };
 
-export const activar = async (
-  req: SolicitudAutenticada,
-  res: Response,
-  next: NextFunction
-) => {
+export const activar = async (req: SolicitudAutenticada, res: Response, next: NextFunction) => {
   try {
     const bicicleta = await activarBicicleta(req.usuario!.usuarioId, req.params.id);
     return res.status(200).json({ bicicleta });

@@ -6,7 +6,7 @@ export const esquemaGenerarQr = Joi.object({
   bicicleteroId: Joi.string().uuid().optional(),
   tipo: Joi.string()
     .valid(...Object.values(TipoMovimiento))
-    .default(TipoMovimiento.INGRESO)
+    .optional()
 });
 
 export const esquemaValidarQr = Joi.object({

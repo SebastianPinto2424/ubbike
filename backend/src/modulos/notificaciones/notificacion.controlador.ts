@@ -19,27 +19,16 @@ export const listarNotificaciones = async (
   }
 };
 
-export const marcarLeida = async (
-  req: SolicitudAutenticada,
-  res: Response,
-  next: NextFunction
-) => {
+export const marcarLeida = async (req: SolicitudAutenticada, res: Response, next: NextFunction) => {
   try {
-    const notificacion = await marcarNotificacionLeida(
-      req.usuario!.usuarioId,
-      req.params.id
-    );
+    const notificacion = await marcarNotificacionLeida(req.usuario!.usuarioId, req.params.id);
     return res.status(200).json({ notificacion });
   } catch (error) {
     return next(error);
   }
 };
 
-export const marcarTodas = async (
-  req: SolicitudAutenticada,
-  res: Response,
-  next: NextFunction
-) => {
+export const marcarTodas = async (req: SolicitudAutenticada, res: Response, next: NextFunction) => {
   try {
     const resultado = await marcarTodasLeidas(req.usuario!.usuarioId);
     return res.status(200).json(resultado);

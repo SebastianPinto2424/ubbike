@@ -32,6 +32,9 @@ class _VistaGestionUsuariosState extends State<VistaGestionUsuarios> {
 
   Future<void> _actualizar(
     UsuarioApp usuario, {
+    String? nombre,
+    String? correo,
+    String? rut,
     RolUsuario? rol,
     bool? cuentaActiva,
     bool? correoVerificado,
@@ -39,6 +42,9 @@ class _VistaGestionUsuariosState extends State<VistaGestionUsuarios> {
     try {
       await usuariosApi.actualizarPermisos(
         usuarioId: usuario.id,
+        nombre: nombre,
+        correo: correo,
+        rut: rut,
         rol: rol,
         cuentaActiva: cuentaActiva,
         correoVerificado: correoVerificado,
@@ -97,6 +103,7 @@ class _VistaGestionUsuariosState extends State<VistaGestionUsuarios> {
                       child: _TarjetaUsuarioAdmin(
                         usuario: usuario,
                         onActualizar: _actualizar,
+                        onEditarCredenciales: _editarCredenciales,
                       ),
                     ),
                   )
@@ -107,6 +114,61 @@ class _VistaGestionUsuariosState extends State<VistaGestionUsuarios> {
       ],
     );
   }
+
+  Future<void> _editarCredenciales(UsuarioApp usuario) async {
+    final nombreController = TextEditingController(text: usuario.nombre);
+    final correoController = TextEditingController(text: usuario.correo);
+    final rutController = TextEditingController(text: usuario.rut ?? '');
+
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar credenciales'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nombreController,
+              decoration: const InputDecoration(labelText: 'Nombre'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: correoController,
+              decoration: const InputDecoration(labelText: 'Correo'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: rutController,
+              decoration: const InputDecoration(labelText: 'RUT'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    if (guardar == true) {
+      await _actualizar(
+        usuario,
+        nombre: nombreController.text.trim(),
+        correo: correoController.text.trim(),
+        rut: rutController.text.trim(),
+      );
+    }
+
+    nombreController.dispose();
+    correoController.dispose();
+    rutController.dispose();
+  }
 }
 
 class _EncabezadoAdminUsuarios extends StatelessWidget {
@@ -115,7 +177,7 @@ class _EncabezadoAdminUsuarios extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: ColoresUbb.azulInstitucional,
+      color: ColoresUbb.azulNoche,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Row(
@@ -129,7 +191,7 @@ class _EncabezadoAdminUsuarios extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.admin_panel_settings_outlined,
-                color: ColoresUbb.amarilloInstitucional,
+                color: ColoresUbb.turquesa,
               ),
             ),
             const SizedBox(width: 14),
@@ -165,6 +227,7 @@ class _TarjetaUsuarioAdmin extends StatelessWidget {
   const _TarjetaUsuarioAdmin({
     required this.usuario,
     required this.onActualizar,
+    required this.onEditarCredenciales,
   });
 
   final UsuarioApp usuario;
@@ -174,6 +237,7 @@ class _TarjetaUsuarioAdmin extends StatelessWidget {
     bool? cuentaActiva,
     bool? correoVerificado,
   }) onActualizar;
+  final Future<void> Function(UsuarioApp usuario) onEditarCredenciales;
 
   @override
   Widget build(BuildContext context) {
@@ -187,7 +251,7 @@ class _TarjetaUsuarioAdmin extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CircleAvatar(
-                  backgroundColor: ColoresUbb.azulInstitucional,
+                  backgroundColor: ColoresUbb.azulApp,
                   child: Text(
                     usuario.nombre.characters.first,
                     style: const TextStyle(
@@ -240,7 +304,7 @@ class _TarjetaUsuarioAdmin extends StatelessWidget {
               children: [
                 ChipEstado(
                   texto: usuario.rol.etiqueta,
-                  color: ColoresUbb.azulInstitucional,
+                  color: ColoresUbb.azulApp,
                 ),
                 ChipEstado(
                   texto: usuario.cuentaActiva ? 'Activo' : 'Acceso denegado',
@@ -292,6 +356,12 @@ class _TarjetaUsuarioAdmin extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => onEditarCredenciales(usuario),
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Editar datos de cuenta'),
+            ),
           ],
         ),
       ),
@@ -317,7 +387,7 @@ class _EstadoUsuarios extends StatelessWidget {
         padding: const EdgeInsets.all(22),
         child: Column(
           children: [
-            Icon(icono, color: ColoresUbb.azulInstitucional, size: 44),
+            Icon(icono, color: ColoresUbb.azulApp, size: 44),
             const SizedBox(height: 12),
             Text(
               titulo,

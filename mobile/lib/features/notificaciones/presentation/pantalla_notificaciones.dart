@@ -105,13 +105,15 @@ class _TarjetaNotificacion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: notificacion.leida ? ColoresUbb.superficie : Colors.white,
+      color: notificacion.leida
+          ? ColoresUbb.superficie
+          : ColoresUbb.superficieAzulSuave,
       child: ListTile(
         leading: Icon(
           _iconoPorTipo(notificacion.tipo),
           color: notificacion.leida
               ? ColoresUbb.textoSecundario
-              : ColoresUbb.azulInstitucional,
+              : ColoresUbb.azulApp,
         ),
         title: Text(
           notificacion.titulo,
@@ -163,7 +165,7 @@ class _EstadoNotificaciones extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icono, color: ColoresUbb.azulInstitucional, size: 44),
+              Icon(icono, color: ColoresUbb.azulApp, size: 44),
               const SizedBox(height: 12),
               Text(
                 titulo,

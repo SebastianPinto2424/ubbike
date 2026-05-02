@@ -1,6 +1,7 @@
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
@@ -28,7 +29,22 @@ export class Bicicleta {
   @Column({ length: 255 })
   descripcion!: string;
 
-  @Column({ name: 'foto_url', type: 'varchar', length: 500, nullable: true })
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  marca!: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  modelo!: string | null;
+
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  color!: string | null;
+
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  aro!: string | null;
+
+  @Column({ name: 'numero_serie', type: 'varchar', length: 120, nullable: true })
+  numeroSerie!: string | null;
+
+  @Column({ name: 'foto_url', type: 'text', nullable: true })
   fotoUrl!: string | null;
 
   @Column({ default: false })
@@ -52,4 +68,7 @@ export class Bicicleta {
 
   @UpdateDateColumn({ name: 'actualizado_en' })
   actualizadoEn!: Date;
+
+  @DeleteDateColumn({ name: 'eliminado_en', nullable: true })
+  eliminadoEn!: Date | null;
 }

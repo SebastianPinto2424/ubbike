@@ -34,6 +34,9 @@ class HistorialApi {
   Future<List<MovimientoApp>> listar({
     String? filtro,
     String? periodo,
+    String? tipo,
+    String? estado,
+    String? bicicleteroId,
   }) async {
     final parametros = <String>[];
 
@@ -45,9 +48,22 @@ class HistorialApi {
       parametros.add('periodo=$periodo');
     }
 
+    if (tipo != null && tipo.isNotEmpty && tipo != 'TODOS') {
+      parametros.add('tipo=$tipo');
+    }
+
+    if (estado != null && estado.isNotEmpty && estado != 'TODOS') {
+      parametros.add('estado=$estado');
+    }
+
+    if (bicicleteroId != null && bicicleteroId.isNotEmpty) {
+      parametros.add('bicicleteroId=$bicicleteroId');
+    }
+
     final query = parametros.isEmpty ? '' : '?${parametros.join('&')}';
     final respuesta = await cliente.get('/historial$query');
-    final datos = respuesta['movimientos'] as List<dynamic>;
+    final datos =
+        (respuesta['movimientos'] ?? respuesta['datos']) as List<dynamic>;
     return datos
         .map((item) => MovimientoApp.desdeJson(item as Map<String, dynamic>))
         .toList();

@@ -1,4 +1,5 @@
 import cors from 'cors';
+import helmet from 'helmet';
 import express, { Request, Response } from 'express';
 import { rutasAutenticacion } from './modulos/autenticacion/autenticacion.rutas';
 import { rutasBicicletas } from './modulos/bicicletas/bicicleta.rutas';
@@ -13,6 +14,7 @@ import { middlewareErrores } from './comun/middlewares/errores.middleware';
 
 const aplicacion = express();
 
+aplicacion.use(helmet());
 aplicacion.use(cors());
 aplicacion.use(express.json());
 

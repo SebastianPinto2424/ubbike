@@ -28,6 +28,11 @@ class BicicletaApi {
 
   Future<void> crear({
     required String descripcion,
+    String? marca,
+    String? modelo,
+    String? color,
+    String? aro,
+    String? numeroSerie,
     String? fotoUrl,
     bool activar = false,
   }) async {
@@ -35,6 +40,11 @@ class BicicletaApi {
       '/bicicletas',
       body: {
         'descripcion': descripcion,
+        'marca': marca,
+        'modelo': modelo,
+        'color': color,
+        'aro': aro,
+        'numeroSerie': numeroSerie,
         'fotoUrl': fotoUrl,
         'activar': activar,
       },
@@ -44,12 +54,22 @@ class BicicletaApi {
   Future<void> actualizar({
     required String bicicletaId,
     required String descripcion,
+    String? marca,
+    String? modelo,
+    String? color,
+    String? aro,
+    String? numeroSerie,
     String? fotoUrl,
   }) async {
     await cliente.patch(
       '/bicicletas/$bicicletaId',
       body: {
         'descripcion': descripcion,
+        'marca': marca,
+        'modelo': modelo,
+        'color': color,
+        'aro': aro,
+        'numeroSerie': numeroSerie,
         'fotoUrl': fotoUrl,
       },
     );

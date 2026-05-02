@@ -1,7 +1,10 @@
 import { ErrorHttp } from '../../comun/errors/error-http';
 import { fuenteDatos } from '../../configuracion/base-datos';
 import { Bicicletero } from '../bicicleteros/bicicletero.entidad';
-import { crearNotificacion, notificarUsuariosPorRol } from '../notificaciones/notificacion.servicio';
+import {
+  crearNotificacion,
+  notificarUsuariosPorRol
+} from '../notificaciones/notificacion.servicio';
 import { TipoNotificacion } from '../notificaciones/tipo-notificacion';
 import { Usuario } from '../usuarios/usuario.entidad';
 import { RolUsuario } from '../usuarios/rol-usuario';
@@ -53,7 +56,10 @@ const mapearSolicitudGuardia = (solicitud: SolicitudGuardia) => ({
     ubicacion: solicitud.bicicletero.ubicacion
   },
   solicitante: mapearUsuarioSolicitud(solicitud.solicitadaPorUsuario),
-  guardiaAsignado: mapearUsuarioSolicitud(solicitud.guardiaAsignado)
+  guardiaAsignado: mapearUsuarioSolicitud(solicitud.guardiaAsignado),
+  guardiasAsignados: solicitud.guardiaAsignado
+    ? [mapearUsuarioSolicitud(solicitud.guardiaAsignado)]
+    : []
 });
 
 const buscarAsignacionActiva = async (bicicleteroId: string) => {
@@ -142,7 +148,9 @@ export const listarSolicitudesGuardia = async (datos: DatosListarSolicitudes) =>
 
   if (datos.rol === RolUsuario.GUARDIA) {
     consulta.where('guardia.id = :usuarioId', { usuarioId: datos.usuarioId });
-  } else if (![RolUsuario.ADMIN_CENTRAL, RolUsuario.ADMINISTRADOR].includes(datos.rol as RolUsuario)) {
+  } else if (
+    ![RolUsuario.ADMIN_CENTRAL, RolUsuario.ADMINISTRADOR].includes(datos.rol as RolUsuario)
+  ) {
     consulta.where('usuario.id = :usuarioId', { usuarioId: datos.usuarioId });
   }
 
@@ -183,8 +191,7 @@ export const actualizarEstadoSolicitudGuardia = async (
 
   solicitud.estado = estado;
   solicitud.resueltaEn =
-    estado === EstadoSolicitudGuardia.RESUELTA ||
-    estado === EstadoSolicitudGuardia.CANCELADA
+    estado === EstadoSolicitudGuardia.RESUELTA || estado === EstadoSolicitudGuardia.CANCELADA
       ? new Date()
       : null;
 
@@ -197,6 +204,24 @@ export const actualizarEstadoSolicitudGuardia = async (
     tipo: TipoNotificacion.SOLICITUD_GUARDIA,
     datos: { solicitudId: solicitud.id, estado }
   });
+
+  if (
+    estado === EstadoSolicitudGuardia.NOTIFICADA &&
+    solicitud.guardiaAsignado &&
+    [RolUsuario.ADMIN_CENTRAL, RolUsuario.ADMINISTRADOR].includes(rol as RolUsuario)
+  ) {
+    await crearNotificacion({
+      usuarioId: solicitud.guardiaAsignado.id,
+      titulo: 'Recordatorio de central',
+      mensaje: `Central solicito atender ${solicitud.bicicletero.nombre}.`,
+      tipo: TipoNotificacion.SOLICITUD_GUARDIA,
+      datos: {
+        solicitudId: solicitud.id,
+        bicicleteroId: solicitud.bicicletero.id,
+        estado
+      }
+    });
+  }
 
   const solicitudCompleta = await repoSolicitudes().findOneOrFail({
     where: { id: solicitudActualizada.id },

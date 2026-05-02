@@ -99,7 +99,9 @@ Tambien se mantienen alias temporales en ingles para no romper pruebas previas: 
 
 ## Flujo MVP validado
 
-1. El usuario inicia sesion y registra una o mas bicicletas.
+1. El usuario se registra utilizando estrictamente su correo institucional. El sistema asigna automáticamente el rol (`ESTUDIANTE` para `@alumnos.ubiobio.cl` o `FUNCIONARIO` para `@ubiobio.cl`).
+2. El formulario valida matemáticamente RUTs chilenos y medidas de seguridad mínimas antes de enviar la petición.
+3. El usuario inicia sesion y registra una o mas bicicletas.
 2. Si tiene varias bicicletas, marca una como activa.
 3. Genera un QR temporal de ingreso o retiro. Dura 15 segundos.
 4. El guardia valida el QR y confirma o deniega la operacion.

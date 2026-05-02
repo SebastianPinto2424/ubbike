@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/tema/colores_ubb.dart';
@@ -14,7 +17,6 @@ import '../../../features/notificaciones/presentation/pantalla_notificaciones.da
 import '../../../features/qr/data/qr_api.dart';
 import '../../../shared/modelos/bicicleta_app.dart';
 import '../../../shared/modelos/bicicletero_app.dart';
-import '../../../shared/modelos/datos_demo.dart';
 import '../../../shared/modelos/movimiento_app.dart';
 import '../../../shared/modelos/rol_usuario.dart';
 import '../../../shared/servicios/sesion_actual.dart';
@@ -87,6 +89,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
       return const [
         NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Inicio'),
         NavigationDestination(icon: Icon(Icons.qr_code_scanner), label: 'QR'),
+        NavigationDestination(icon: Icon(Icons.history), label: 'Movs.'),
         NavigationDestination(
             icon: Icon(Icons.edit_note_outlined), label: 'Manual'),
         NavigationDestination(
@@ -116,6 +119,8 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         NavigationDestination(
             icon: Icon(Icons.dashboard_outlined), label: 'Inicio'),
         NavigationDestination(
+            icon: Icon(Icons.manage_search_outlined), label: 'Movs.'),
+        NavigationDestination(
             icon: Icon(Icons.manage_accounts_outlined), label: 'Usuarios'),
         NavigationDestination(
             icon: Icon(Icons.campaign_outlined), label: 'Solicitudes'),
@@ -140,6 +145,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
       return const [
         VistaInicioGuardia(),
         VistaEscanerQrGuardia(),
+        VistaMovimientosCentral(),
         VistaGestionManualGuardia(),
         VistaAlertasGuardia(),
         VistaPerfil(rol: RolUsuario.guardia),
@@ -159,6 +165,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
     if (rol == RolUsuario.administrador) {
       return const [
         VistaDashboardCentral(),
+        VistaMovimientosCentral(),
         VistaGestionUsuarios(),
         VistaSolicitudesCentral(),
         VistaOperacionesGuardiasCentral(),
@@ -176,34 +183,112 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   }
 }
 
-class VistaInicioUsuario extends StatelessWidget {
+String _saludoActual() {
+  final hora = DateTime.now().hour;
+  if (hora < 12) {
+    return 'Buenos dias';
+  }
+  if (hora < 20) {
+    return 'Buenas tardes';
+  }
+  return 'Buenas noches';
+}
+
+String _nombreSesion(String respaldo) {
+  final nombre = SesionActual.usuario?.nombre.trim();
+  if (nombre == null || nombre.isEmpty) {
+    return respaldo;
+  }
+  return nombre;
+}
+
+class VistaInicioUsuario extends StatefulWidget {
   const VistaInicioUsuario({super.key});
+
+  @override
+  State<VistaInicioUsuario> createState() => _VistaInicioUsuarioState();
+}
+
+class _VistaInicioUsuarioState extends State<VistaInicioUsuario> {
+  final bicicletaApi = BicicletaApi();
+  final solicitudGuardiaApi = SolicitudGuardiaApi();
+  late Future<BicicletaApp?> futuroBicicletaActiva;
+  late Future<List<BicicleteroApp>> futuroBicicleteros;
+
+  @override
+  void initState() {
+    super.initState();
+    futuroBicicletaActiva = bicicletaApi.obtenerActiva();
+    futuroBicicleteros = solicitudGuardiaApi.listarBicicleteros();
+  }
+
+  void _recargar() {
+    setState(() {
+      futuroBicicletaActiva = bicicletaApi.obtenerActiva();
+      futuroBicicleteros = solicitudGuardiaApi.listarBicicleteros();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       children: [
-        const _EncabezadoSeccion(
-          titulo: 'Inicio',
+        _EncabezadoSeccion(
+          titulo: '${_saludoActual()}, ${_nombreSesion('Usuario UBB')}',
           detalle: 'Estado de tus bicicletas y bicicleteros disponibles.',
           icono: Icons.home_outlined,
         ),
         const SizedBox(height: 16),
-        const _EstadoActualUsuario(),
-        const SizedBox(height: 16),
-        Text(
-          'Bicicleteros',
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.w900),
+        FutureBuilder<BicicletaApp?>(
+          future: futuroBicicletaActiva,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const _EstadoLista(
+                icono: Icons.pedal_bike,
+                titulo: 'Cargando estado',
+                detalle: 'Consultando tu bicicleta activa.',
+              );
+            }
+            return _EstadoActualUsuario(bicicleta: snapshot.data);
+          },
         ),
+        const SizedBox(height: 16),
+        _TituloApartado(titulo: 'Uso de bicicleteros', onRefresh: _recargar),
         const SizedBox(height: 10),
-        ...bicicleterosDemo.map(
-          (bicicletero) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _TarjetaBicicletero(bicicletero: bicicletero),
-          ),
+        FutureBuilder<List<BicicleteroApp>>(
+          future: futuroBicicleteros,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return TarjetaAccion(
+                icono: Icons.cloud_off_outlined,
+                titulo: 'No se pudieron cargar bicicleteros',
+                detalle: 'Toca para reintentar.',
+                color: ColoresUbb.rojoInstitucional,
+                onTap: _recargar,
+              );
+            }
+            final bicicleteros = snapshot.data ?? [];
+            if (bicicleteros.isEmpty) {
+              return const _EstadoLista(
+                icono: Icons.location_off_outlined,
+                titulo: 'Sin bicicleteros activos',
+                detalle: 'Cuando existan bicicleteros activos apareceran aqui.',
+              );
+            }
+            return Column(
+              children: bicicleteros
+                  .map(
+                    (bicicletero) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _TarjetaBicicleteroApp(bicicletero: bicicletero),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
         ),
       ],
     );
@@ -211,21 +296,34 @@ class VistaInicioUsuario extends StatelessWidget {
 }
 
 class _EstadoActualUsuario extends StatelessWidget {
-  const _EstadoActualUsuario();
+  const _EstadoActualUsuario({required this.bicicleta});
+
+  final BicicletaApp? bicicleta;
 
   @override
   Widget build(BuildContext context) {
+    final bicicleta = this.bicicleta;
+    final dentro = bicicleta?.dentroBicicletero ?? false;
+
     return Card(
-      color: ColoresUbb.azulInstitucional,
+      color: ColoresUbb.azulApp,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.lock_open_outlined, color: Colors.white, size: 32),
+            Icon(
+              dentro ? Icons.lock_outline : Icons.lock_open_outlined,
+              color: Colors.white,
+              size: 32,
+            ),
             const SizedBox(height: 12),
             Text(
-              'Sin bicicleta dentro',
+              bicicleta == null
+                  ? 'Sin bicicleta activa'
+                  : dentro
+                      ? 'Bicicleta dentro'
+                      : 'Sin bicicleta dentro',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -233,7 +331,11 @@ class _EstadoActualUsuario extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Cuando llegues, genera un QR temporal y presentalo al guardia.',
+              bicicleta == null
+                  ? 'Registra una bicicleta y marcala como activa para generar QR.'
+                  : dentro
+                      ? '${bicicleta.descripcion} esta en ${bicicleta.bicicleteroActualNombre ?? 'un bicicletero'}. El siguiente QR sera de retiro.'
+                      : '${bicicleta.descripcion} esta lista. El siguiente QR sera de ingreso.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.white.withValues(alpha: 0.86),
                   ),
@@ -278,6 +380,8 @@ class _VistaBicicletasState extends State<VistaBicicletas> {
           icono: Icons.pedal_bike,
         ),
         const SizedBox(height: 16),
+        const _TituloApartado(titulo: 'Mis bicicletas'),
+        const SizedBox(height: 10),
         FutureBuilder<List<BicicletaApp>>(
           future: futuroBicicletas,
           builder: (context, snapshot) {
@@ -296,10 +400,37 @@ class _VistaBicicletasState extends State<VistaBicicletas> {
             final bicicletas = snapshot.data ?? [];
 
             if (bicicletas.isEmpty) {
-              return const _EstadoLista(
-                icono: Icons.pedal_bike,
-                titulo: 'Sin bicicletas registradas',
-                detalle: 'Agrega tu primera bicicleta para generar QR.',
+              return SizedBox(
+                height: 250,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.pedal_bike,
+                        size: 64,
+                        color: ColoresUbb.textoSecundario,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Sin bicicletas',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(color: ColoresUbb.textoSecundario),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Toca abajo para registrar tu primera bicicleta',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: ColoresUbb.textoSecundario),
+                      ),
+                    ],
+                  ),
+                ),
               );
             }
 
@@ -332,6 +463,8 @@ class _VistaBicicletasState extends State<VistaBicicletas> {
           detalle: 'Agrega descripcion, foto y datos visibles para validacion.',
           onTap: () => _mostrarFormularioBicicleta(context),
         ),
+        const SizedBox(height: 18),
+        const VistaMovimientosUsuario(),
       ],
     );
   }
@@ -401,9 +534,35 @@ class _VistaBicicletasState extends State<VistaBicicletas> {
     final descripcionController = TextEditingController(
       text: bicicleta?.descripcion ?? '',
     );
-    final fotoController =
-        TextEditingController(text: bicicleta?.fotoUrl ?? '');
+    final marcaController = TextEditingController(text: bicicleta?.marca ?? '');
+    final modeloController =
+        TextEditingController(text: bicicleta?.modelo ?? '');
+    final colorController = TextEditingController(text: bicicleta?.color ?? '');
+    final aroController = TextEditingController(text: bicicleta?.aro ?? '');
+    final numeroSerieController =
+        TextEditingController(text: bicicleta?.numeroSerie ?? '');
+    String? fotoSeleccionada = bicicleta?.fotoUrl;
     bool activar = bicicleta?.activa ?? false;
+
+    Future<void> seleccionarFoto(
+      ImageSource source,
+      void Function(void Function()) setModalState,
+    ) async {
+      final imagen = await ImagePicker().pickImage(
+        source: source,
+        imageQuality: 72,
+        maxWidth: 1200,
+      );
+
+      if (imagen == null) {
+        return;
+      }
+
+      final bytes = await imagen.readAsBytes();
+      final mime = imagen.mimeType ?? 'image/jpeg';
+      final dataUrl = 'data:$mime;base64,${base64Encode(bytes)}';
+      setModalState(() => fotoSeleccionada = dataUrl);
+    }
 
     final guardo = await showModalBottomSheet<bool>(
       context: context,
@@ -419,87 +578,164 @@ class _VistaBicicletasState extends State<VistaBicicletas> {
                 20,
                 20 + MediaQuery.of(context).viewInsets.bottom,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    bicicleta == null
-                        ? 'Registrar bicicleta'
-                        : 'Editar bicicleta',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: descripcionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Descripcion',
-                      prefixIcon: Icon(Icons.pedal_bike),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      bicicleta == null
+                          ? 'Registrar bicicleta'
+                          : 'Editar bicicleta',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w900),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: fotoController,
-                    decoration: const InputDecoration(
-                      labelText: 'URL de foto opcional',
-                      prefixIcon: Icon(Icons.image_outlined),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: descripcionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Descripcion',
+                        prefixIcon: Icon(Icons.pedal_bike),
+                      ),
+                      textInputAction: TextInputAction.next,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  CheckboxListTile(
-                    value: activar,
-                    onChanged: (valor) =>
-                        setModalState(() => activar = valor ?? false),
-                    title: const Text('Usar como bicicleta activa'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      if (descripcionController.text.trim().isEmpty) {
-                        return;
-                      }
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: marcaController,
+                            decoration: const InputDecoration(
+                              labelText: 'Marca',
+                              prefixIcon: Icon(Icons.sell_outlined),
+                            ),
+                            textInputAction: TextInputAction.next,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: modeloController,
+                            decoration: const InputDecoration(
+                              labelText: 'Modelo',
+                              prefixIcon: Icon(Icons.category_outlined),
+                            ),
+                            textInputAction: TextInputAction.next,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: colorController,
+                            decoration: const InputDecoration(
+                              labelText: 'Color',
+                              prefixIcon: Icon(Icons.palette_outlined),
+                            ),
+                            textInputAction: TextInputAction.next,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: aroController,
+                            decoration: const InputDecoration(
+                              labelText: 'Aro',
+                              prefixIcon: Icon(Icons.circle_outlined),
+                            ),
+                            textInputAction: TextInputAction.next,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: numeroSerieController,
+                      decoration: const InputDecoration(
+                        labelText: 'Numero de serie',
+                        prefixIcon: Icon(Icons.qr_code_2),
+                      ),
+                      textInputAction: TextInputAction.done,
+                    ),
+                    const SizedBox(height: 12),
+                    _SelectorFotoBicicleta(
+                      fotoDataUrl: fotoSeleccionada,
+                      onCamara: () => seleccionarFoto(
+                        ImageSource.camera,
+                        setModalState,
+                      ),
+                      onGaleria: () => seleccionarFoto(
+                        ImageSource.gallery,
+                        setModalState,
+                      ),
+                      onQuitar: fotoSeleccionada == null
+                          ? null
+                          : () => setModalState(() => fotoSeleccionada = null),
+                    ),
+                    const SizedBox(height: 8),
+                    CheckboxListTile(
+                      value: activar,
+                      onChanged: (valor) =>
+                          setModalState(() => activar = valor ?? false),
+                      title: const Text('Usar como bicicleta activa'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        if (descripcionController.text.trim().isEmpty) {
+                          return;
+                        }
 
-                      try {
-                        if (bicicleta == null) {
-                          await bicicletaApi.crear(
-                            descripcion: descripcionController.text.trim(),
-                            fotoUrl: fotoController.text.trim().isEmpty
-                                ? null
-                                : fotoController.text.trim(),
-                            activar: activar,
-                          );
-                        } else {
-                          await bicicletaApi.actualizar(
-                            bicicletaId: bicicleta.id,
-                            descripcion: descripcionController.text.trim(),
-                            fotoUrl: fotoController.text.trim().isEmpty
-                                ? null
-                                : fotoController.text.trim(),
-                          );
-                          if (activar && !bicicleta.activa) {
-                            await bicicletaApi.activar(bicicleta.id);
+                        try {
+                          if (bicicleta == null) {
+                            await bicicletaApi.crear(
+                              descripcion: descripcionController.text.trim(),
+                              marca: marcaController.text.trim(),
+                              modelo: modeloController.text.trim(),
+                              color: colorController.text.trim(),
+                              aro: aroController.text.trim(),
+                              numeroSerie: numeroSerieController.text.trim(),
+                              fotoUrl: fotoSeleccionada,
+                              activar: activar,
+                            );
+                          } else {
+                            await bicicletaApi.actualizar(
+                              bicicletaId: bicicleta.id,
+                              descripcion: descripcionController.text.trim(),
+                              marca: marcaController.text.trim(),
+                              modelo: modeloController.text.trim(),
+                              color: colorController.text.trim(),
+                              aro: aroController.text.trim(),
+                              numeroSerie: numeroSerieController.text.trim(),
+                              fotoUrl: fotoSeleccionada,
+                            );
+                            if (activar && !bicicleta.activa) {
+                              await bicicletaApi.activar(bicicleta.id);
+                            }
+                          }
+
+                          if (context.mounted) {
+                            Navigator.pop(context, true);
+                          }
+                        } on ExcepcionApi catch (error) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(error.mensaje)),
+                            );
                           }
                         }
-
-                        if (context.mounted) {
-                          Navigator.pop(context, true);
-                        }
-                      } on ExcepcionApi catch (error) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(error.mensaje)),
-                          );
-                        }
-                      }
-                    },
-                    icon: const Icon(Icons.save_outlined),
-                    label: const Text('Guardar'),
-                  ),
-                ],
+                      },
+                      icon: const Icon(Icons.save_outlined),
+                      label: const Text('Guardar'),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -508,11 +744,190 @@ class _VistaBicicletasState extends State<VistaBicicletas> {
     );
 
     descripcionController.dispose();
-    fotoController.dispose();
+    marcaController.dispose();
+    modeloController.dispose();
+    colorController.dispose();
+    aroController.dispose();
+    numeroSerieController.dispose();
 
     if (guardo == true) {
       _recargar();
     }
+  }
+}
+
+class _SelectorFotoBicicleta extends StatelessWidget {
+  const _SelectorFotoBicicleta({
+    required this.fotoDataUrl,
+    required this.onCamara,
+    required this.onGaleria,
+    required this.onQuitar,
+  });
+
+  final String? fotoDataUrl;
+  final VoidCallback onCamara;
+  final VoidCallback onGaleria;
+  final VoidCallback? onQuitar;
+
+  @override
+  Widget build(BuildContext context) {
+    final foto = fotoDataUrl;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: ColoresUbb.superficieAzulSuave,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: ColoresUbb.borde),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (foto != null && foto.startsWith('data:image')) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.memory(
+                  base64Decode(foto.split(',').last),
+                  height: 140,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onCamara,
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: const Text('Tomar foto'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onGaleria,
+                  icon: const Icon(Icons.upload_file_outlined),
+                  label: const Text('Subir foto'),
+                ),
+                if (onQuitar != null)
+                  TextButton.icon(
+                    onPressed: onQuitar,
+                    icon: const Icon(Icons.close),
+                    label: const Text('Quitar'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class VistaMovimientosUsuario extends StatefulWidget {
+  const VistaMovimientosUsuario({super.key});
+
+  @override
+  State<VistaMovimientosUsuario> createState() =>
+      _VistaMovimientosUsuarioState();
+}
+
+class _VistaMovimientosUsuarioState extends State<VistaMovimientosUsuario> {
+  final historialApi = HistorialApi();
+  final filtroController = TextEditingController();
+  String periodo = 'MES';
+  late Future<List<MovimientoApp>> futuroMovimientos;
+
+  @override
+  void initState() {
+    super.initState();
+    futuroMovimientos = _obtenerMovimientos();
+  }
+
+  @override
+  void dispose() {
+    filtroController.dispose();
+    super.dispose();
+  }
+
+  Future<List<MovimientoApp>> _obtenerMovimientos() {
+    return historialApi.listar(
+      filtro: filtroController.text,
+      periodo: periodo,
+    );
+  }
+
+  void _recargar() {
+    setState(() => futuroMovimientos = _obtenerMovimientos());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _TituloApartado(titulo: 'Mis movimientos', onRefresh: _recargar),
+        const SizedBox(height: 10),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'DIA', label: Text('Dia')),
+            ButtonSegment(value: 'SEMANA', label: Text('Semana')),
+            ButtonSegment(value: 'MES', label: Text('Mes')),
+            ButtonSegment(value: 'ANIO', label: Text('Ano')),
+          ],
+          selected: {periodo},
+          onSelectionChanged: (valor) {
+            periodo = valor.first;
+            _recargar();
+          },
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: filtroController,
+          decoration: const InputDecoration(
+            labelText: 'Filtrar por bicicleta',
+            prefixIcon: Icon(Icons.search),
+          ),
+          onChanged: (_) => _recargar(),
+        ),
+        const SizedBox(height: 12),
+        FutureBuilder<List<MovimientoApp>>(
+          future: futuroMovimientos,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return TarjetaAccion(
+                icono: Icons.error_outline,
+                titulo: 'No se pudieron cargar movimientos',
+                detalle: 'Toca para reintentar.',
+                color: ColoresUbb.rojoInstitucional,
+                onTap: _recargar,
+              );
+            }
+            final movimientos = snapshot.data ?? [];
+            if (movimientos.isEmpty) {
+              return const _EstadoLista(
+                icono: Icons.history,
+                titulo: 'Sin movimientos',
+                detalle: 'Tus ingresos y retiros apareceran aqui.',
+              );
+            }
+            return Column(
+              children: movimientos
+                  .map(
+                    (movimiento) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _TarjetaMovimientoCentral(movimiento: movimiento),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+        ),
+      ],
+    );
   }
 }
 
@@ -525,9 +940,49 @@ class VistaQrUsuario extends StatefulWidget {
 
 class _VistaQrUsuarioState extends State<VistaQrUsuario> {
   final qrApi = QrApi();
+  final bicicletaApi = BicicletaApi();
+  final solicitudGuardiaApi = SolicitudGuardiaApi();
   QrTemporalApp? qrActual;
-  String tipoOperacion = 'INGRESO';
+  BicicletaApp? bicicletaActiva;
+  BicicleteroApp? bicicleteroSeleccionado;
+  List<BicicleteroApp> bicicleteros = [];
+  bool cargandoDatos = true;
   bool generando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatos();
+  }
+
+  Future<void> _cargarDatos() async {
+    try {
+      final resultados = await Future.wait([
+        bicicletaApi.obtenerActiva(),
+        solicitudGuardiaApi.listarBicicleteros(),
+      ]);
+
+      if (mounted) {
+        final bicicleta = resultados[0] as BicicletaApp?;
+        final listaBicicleteros = resultados[1] as List<BicicleteroApp>;
+        setState(() {
+          bicicletaActiva = bicicleta;
+          bicicleteros = listaBicicleteros;
+          bicicleteroSeleccionado = listaBicicleteros.isEmpty
+              ? null
+              : listaBicicleteros.firstWhere(
+                  (item) => item.cuposDisponibles > 0,
+                  orElse: () => listaBicicleteros.first,
+                );
+          cargandoDatos = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => cargandoDatos = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -535,12 +990,17 @@ class _VistaQrUsuarioState extends State<VistaQrUsuario> {
     final segundosRestantes = qr == null
         ? 0
         : qr.expiraEn.difference(DateTime.now()).inSeconds.clamp(0, 15);
+    final bicicleta = bicicletaActiva;
+    final tipoOperacion =
+        bicicleta?.dentroBicicletero == true ? 'SALIDA' : 'INGRESO';
+    final debeSeleccionarBicicletero = tipoOperacion == 'INGRESO';
 
     return ListView(
       children: [
         const _EncabezadoSeccion(
           titulo: 'QR temporal',
-          detalle: 'El codigo dura 15 segundos. Si vence, debe regenerarse.',
+          detalle:
+              'La app detecta automaticamente si corresponde ingreso o retiro.',
           icono: Icons.qr_code_2,
         ),
         const SizedBox(height: 16),
@@ -550,41 +1010,68 @@ class _VistaQrUsuarioState extends State<VistaQrUsuario> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'INGRESO',
-                      label: Text('Ingreso'),
-                      icon: Icon(Icons.login),
+                if (cargandoDatos)
+                  const Center(child: CircularProgressIndicator())
+                else if (bicicleta == null)
+                  const _EstadoLista(
+                    icono: Icons.pedal_bike,
+                    titulo: 'Sin bicicleta activa',
+                    detalle: 'Activa una bicicleta antes de generar QR.',
+                  )
+                else ...[
+                  ChipEstado(
+                    texto: tipoOperacion == 'INGRESO'
+                        ? 'Operacion detectada: ingreso'
+                        : 'Operacion detectada: retiro',
+                    color: tipoOperacion == 'INGRESO'
+                        ? ColoresUbb.azulApp
+                        : ColoresUbb.turquesa,
+                  ),
+                  const SizedBox(height: 12),
+                  _FilaDato(
+                    etiqueta: 'Bicicleta activa',
+                    valor: bicicleta.descripcion,
+                  ),
+                  if (bicicleta.dentroBicicletero)
+                    _FilaDato(
+                      etiqueta: 'Bicicletero actual',
+                      valor: bicicleta.bicicleteroActualNombre ?? 'Registrado',
                     ),
-                    ButtonSegment(
-                      value: 'SALIDA',
-                      label: Text('Retiro'),
-                      icon: Icon(Icons.logout),
+                  if (debeSeleccionarBicicletero) ...[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<BicicleteroApp>(
+                      initialValue: bicicleteroSeleccionado,
+                      decoration: const InputDecoration(
+                        labelText: 'Bicicletero a usar',
+                        prefixIcon: Icon(Icons.location_on_outlined),
+                      ),
+                      items: bicicleteros
+                          .map(
+                            (bicicletero) => DropdownMenuItem(
+                              value: bicicletero,
+                              child: Text(
+                                '${bicicletero.nombre} (${bicicletero.cuposDisponibles} cupos)',
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (valor) =>
+                          setState(() => bicicleteroSeleccionado = valor),
                     ),
                   ],
-                  selected: {tipoOperacion},
-                  onSelectionChanged: qr == null || segundosRestantes == 0
-                      ? (valor) => setState(() => tipoOperacion = valor.first)
-                      : null,
-                ),
+                ],
                 const SizedBox(height: 16),
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: Center(
-                    child: qr == null
-                        ? const _EstadoLista(
-                            icono: Icons.qr_code_2,
-                            titulo: 'QR no generado',
-                            detalle:
-                                'Genera un codigo cuando estes frente al guardia.',
-                          )
-                        : _QrTemporal(
-                            token: qr.token,
-                            segundosRestantes: segundosRestantes,
-                          ),
+                if (qr == null)
+                  const _EstadoLista(
+                    icono: Icons.qr_code_2,
+                    titulo: 'QR no generado',
+                    detalle: 'Selecciona el bicicletero y genera el codigo.',
+                  )
+                else
+                  _QrTemporal(
+                    token: qr.token,
+                    segundosRestantes: segundosRestantes,
                   ),
-                ),
                 const SizedBox(height: 16),
                 ChipEstado(
                   texto: qr == null
@@ -601,21 +1088,21 @@ class _VistaQrUsuarioState extends State<VistaQrUsuario> {
                   etiqueta: 'Operacion',
                   valor: tipoOperacion == 'INGRESO' ? 'Ingreso' : 'Retiro',
                 ),
-                _FilaDato(
-                  etiqueta: 'Bicicleta activa',
-                  valor: qr?.bicicleta.descripcion ?? 'No seleccionada',
-                ),
                 const _FilaDato(etiqueta: 'Duracion', valor: '15 segundos'),
+                if (qr?.bicicletero != null)
+                  _FilaDato(
+                    etiqueta: 'Bicicletero',
+                    valor: qr!.bicicletero!.nombre,
+                  ),
                 if (qr != null) ...[
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: ColoresUbb.azulOscuro.withValues(alpha: 0.08),
+                      color: ColoresUbb.superficieAzulSuave,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color:
-                            ColoresUbb.azulInstitucional.withValues(alpha: 0.2),
+                        color: ColoresUbb.bordeFuerte.withValues(alpha: 0.55),
                       ),
                     ),
                     child: Column(
@@ -643,7 +1130,13 @@ class _VistaQrUsuarioState extends State<VistaQrUsuario> {
                 ],
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: generando ? null : _generarQr,
+                  onPressed: generando ||
+                          cargandoDatos ||
+                          bicicleta == null ||
+                          (debeSeleccionarBicicletero &&
+                              bicicleteroSeleccionado == null)
+                      ? null
+                      : _generarQr,
                   icon: generando
                       ? const SizedBox(
                           width: 18,
@@ -669,7 +1162,11 @@ class _VistaQrUsuarioState extends State<VistaQrUsuario> {
     setState(() => generando = true);
 
     try {
-      final qr = await qrApi.generar(tipo: tipoOperacion);
+      final tipo =
+          bicicletaActiva?.dentroBicicletero == true ? 'SALIDA' : 'INGRESO';
+      final qr = await qrApi.generar(
+        bicicleteroId: tipo == 'INGRESO' ? bicicleteroSeleccionado?.id : null,
+      );
 
       if (mounted) {
         setState(() => qrActual = qr);
@@ -921,39 +1418,71 @@ class _VistaSolicitarGuardiaState extends State<VistaSolicitarGuardia> {
   }
 }
 
-class VistaInicioGuardia extends StatelessWidget {
+class VistaInicioGuardia extends StatefulWidget {
   const VistaInicioGuardia({super.key});
+
+  @override
+  State<VistaInicioGuardia> createState() => _VistaInicioGuardiaState();
+}
+
+class _VistaInicioGuardiaState extends State<VistaInicioGuardia> {
+  final solicitudGuardiaApi = SolicitudGuardiaApi();
+  late Future<List<BicicleteroApp>> futuroBicicleteros;
+
+  @override
+  void initState() {
+    super.initState();
+    futuroBicicleteros = solicitudGuardiaApi.listarBicicleteros();
+  }
+
+  void _recargar() {
+    setState(
+        () => futuroBicicleteros = solicitudGuardiaApi.listarBicicleteros());
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      children: const [
+      children: [
         _EncabezadoSeccion(
-          titulo: 'Inicio guardia',
+          titulo: '${_saludoActual()}, ${_nombreSesion('Guardia')}',
           detalle: 'Turno activo, bicicletero asignado y accesos recientes.',
           icono: Icons.verified_user_outlined,
         ),
-        SizedBox(height: 16),
-        TarjetaAccion(
-          icono: Icons.location_on_outlined,
-          titulo: 'Bicicletero Central',
-          detalle: 'Turno 08:00 - 16:00 | 68% ocupacion',
+        const SizedBox(height: 16),
+        FutureBuilder<List<BicicleteroApp>>(
+          future: futuroBicicleteros,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError || (snapshot.data ?? []).isEmpty) {
+              return TarjetaAccion(
+                icono: Icons.location_off_outlined,
+                titulo: 'Sin bicicletero asignado',
+                detalle: 'Toca para actualizar informacion de cupos.',
+                color: ColoresUbb.rojoInstitucional,
+                onTap: _recargar,
+              );
+            }
+            return _TarjetaBicicleteroApp(bicicletero: snapshot.data!.first);
+          },
         ),
-        SizedBox(height: 10),
-        TarjetaAccion(
+        const SizedBox(height: 10),
+        const TarjetaAccion(
           icono: Icons.qr_code_scanner,
           titulo: 'Escanear QR temporal',
           detalle:
               'Lee el codigo del usuario para confirmar o denegar ingreso/retiro.',
           color: ColoresUbb.exito,
         ),
-        SizedBox(height: 10),
-        TarjetaAccion(
+        const SizedBox(height: 10),
+        const TarjetaAccion(
           icono: Icons.edit_note_outlined,
           titulo: 'Gestion manual',
           detalle:
               'Registra ingreso o retiro usando correo institucional y RUT.',
-          color: ColoresUbb.amarilloInstitucional,
+          color: ColoresUbb.azulInstitucional,
         ),
       ],
     );
@@ -1285,13 +1814,13 @@ class _VistaGestionManualGuardiaState extends State<VistaGestionManualGuardia> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: ColoresUbb.azulOscuro.withValues(alpha: 0.07),
+                    color: ColoresUbb.superficieAzulSuave,
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: ColoresUbb.borde),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.info_outline,
-                          color: ColoresUbb.azulInstitucional),
+                      Icon(Icons.info_outline, color: ColoresUbb.azulApp),
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -1465,25 +1994,31 @@ class VistaDashboardCentral extends StatefulWidget {
 
 class _VistaDashboardCentralState extends State<VistaDashboardCentral> {
   final historialApi = HistorialApi();
+  final solicitudGuardiaApi = SolicitudGuardiaApi();
   late Future<ResumenHistorialApp> futuroResumen;
+  late Future<List<BicicleteroApp>> futuroBicicleteros;
 
   @override
   void initState() {
     super.initState();
     futuroResumen = historialApi.resumen();
+    futuroBicicleteros = solicitudGuardiaApi.listarBicicleteros();
   }
 
   void _recargar() {
-    setState(() => futuroResumen = historialApi.resumen());
+    setState(() {
+      futuroResumen = historialApi.resumen();
+      futuroBicicleteros = solicitudGuardiaApi.listarBicicleteros();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       children: [
-        const _EncabezadoSeccion(
-          titulo: 'Dashboard central',
-          detalle: 'Resumen operacional basado en historial de movimientos.',
+        _EncabezadoSeccion(
+          titulo: '${_saludoActual()}, ${_nombreSesion('Central')}',
+          detalle: 'Dashboard de movimientos y cupos disponibles.',
           icono: Icons.dashboard_outlined,
         ),
         const SizedBox(height: 16),
@@ -1533,11 +2068,34 @@ class _VistaDashboardCentralState extends State<VistaDashboardCentral> {
           },
         ),
         const SizedBox(height: 16),
-        ...bicicleterosDemo.map(
-          (bicicletero) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _TarjetaBicicletero(bicicletero: bicicletero),
-          ),
+        _TituloApartado(titulo: 'Cupos por bicicletero', onRefresh: _recargar),
+        const SizedBox(height: 10),
+        FutureBuilder<List<BicicleteroApp>>(
+          future: futuroBicicleteros,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return TarjetaAccion(
+                icono: Icons.error_outline,
+                titulo: 'No se pudieron cargar cupos',
+                detalle: 'Toca para reintentar.',
+                color: ColoresUbb.rojoInstitucional,
+                onTap: _recargar,
+              );
+            }
+            return Column(
+              children: (snapshot.data ?? [])
+                  .map(
+                    (bicicletero) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _TarjetaBicicleteroApp(bicicletero: bicicletero),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
         ),
       ],
     );
@@ -1556,6 +2114,8 @@ class _VistaMovimientosCentralState extends State<VistaMovimientosCentral> {
   final historialApi = HistorialApi();
   final filtroController = TextEditingController();
   String periodo = 'SEMANA';
+  String tipoMovimiento = 'TODOS';
+  String estadoMovimiento = 'TODOS';
   late Future<List<MovimientoApp>> futuroMovimientos;
 
   @override
@@ -1574,6 +2134,8 @@ class _VistaMovimientosCentralState extends State<VistaMovimientosCentral> {
     return historialApi.listar(
       filtro: filtroController.text,
       periodo: periodo,
+      tipo: tipoMovimiento,
+      estado: estadoMovimiento,
     );
   }
 
@@ -1587,7 +2149,8 @@ class _VistaMovimientosCentralState extends State<VistaMovimientosCentral> {
       children: [
         const _EncabezadoSeccion(
           titulo: 'Movimientos',
-          detalle: 'Filtra historial por RUT, correo institucional o nombre.',
+          detalle:
+              'Filtra historial por fecha, usuario, bicicleta, tipo y estado.',
           icono: Icons.manage_search_outlined,
         ),
         const SizedBox(height: 16),
@@ -1596,6 +2159,7 @@ class _VistaMovimientosCentralState extends State<VistaMovimientosCentral> {
             ButtonSegment(value: 'DIA', label: Text('Dia')),
             ButtonSegment(value: 'SEMANA', label: Text('Semana')),
             ButtonSegment(value: 'MES', label: Text('Mes')),
+            ButtonSegment(value: 'ANIO', label: Text('Ano')),
           ],
           selected: {periodo},
           onSelectionChanged: (valor) {
@@ -1604,10 +2168,36 @@ class _VistaMovimientosCentralState extends State<VistaMovimientosCentral> {
           },
         ),
         const SizedBox(height: 12),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'TODOS', label: Text('Todos')),
+            ButtonSegment(value: 'INGRESO', label: Text('Ingresos')),
+            ButtonSegment(value: 'SALIDA', label: Text('Retiros')),
+          ],
+          selected: {tipoMovimiento},
+          onSelectionChanged: (valor) {
+            tipoMovimiento = valor.first;
+            _recargar();
+          },
+        ),
+        const SizedBox(height: 12),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'TODOS', label: Text('Todo')),
+            ButtonSegment(value: 'CONFIRMADO', label: Text('Exitosos')),
+            ButtonSegment(value: 'DENEGADO', label: Text('Denegados')),
+          ],
+          selected: {estadoMovimiento},
+          onSelectionChanged: (valor) {
+            estadoMovimiento = valor.first;
+            _recargar();
+          },
+        ),
+        const SizedBox(height: 12),
         TextField(
           controller: filtroController,
           decoration: const InputDecoration(
-            labelText: 'Buscar por RUT o correo',
+            labelText: 'Buscar RUT, correo, bicicleta, guardia o bicicletero',
             prefixIcon: Icon(Icons.search),
           ),
           onChanged: (_) => _recargar(),
@@ -1787,17 +2377,37 @@ class VistaOperacionesGuardiasCentral extends StatefulWidget {
 class _VistaOperacionesGuardiasCentralState
     extends State<VistaOperacionesGuardiasCentral> {
   final historialApi = HistorialApi();
+  final solicitudGuardiaApi = SolicitudGuardiaApi();
   String periodo = 'DIA';
+  String estadoMovimiento = 'TODOS';
+  BicicleteroApp? bicicleteroSeleccionado;
+  List<BicicleteroApp> bicicleteros = [];
   late Future<List<MovimientoApp>> futuroMovimientos;
 
   @override
   void initState() {
     super.initState();
-    futuroMovimientos = historialApi.listar(periodo: periodo);
+    futuroMovimientos = _obtenerMovimientos();
+    _cargarBicicleteros();
+  }
+
+  Future<void> _cargarBicicleteros() async {
+    final datos = await solicitudGuardiaApi.listarBicicleteros();
+    if (mounted) {
+      setState(() => bicicleteros = datos);
+    }
+  }
+
+  Future<List<MovimientoApp>> _obtenerMovimientos() {
+    return historialApi.listar(
+      periodo: periodo,
+      estado: estadoMovimiento,
+      bicicleteroId: bicicleteroSeleccionado?.id,
+    );
   }
 
   void _recargar() {
-    setState(() => futuroMovimientos = historialApi.listar(periodo: periodo));
+    setState(() => futuroMovimientos = _obtenerMovimientos());
   }
 
   @override
@@ -1806,7 +2416,7 @@ class _VistaOperacionesGuardiasCentralState
       children: [
         const _EncabezadoSeccion(
           titulo: 'Operaciones por guardia',
-          detalle: 'Consulta rendimiento operacional por dia, semana o mes.',
+          detalle: 'Filtra guardias por bicicletero, periodo y resultado.',
           icono: Icons.security_outlined,
         ),
         const SizedBox(height: 16),
@@ -1815,10 +2425,48 @@ class _VistaOperacionesGuardiasCentralState
             ButtonSegment(value: 'DIA', label: Text('Dia')),
             ButtonSegment(value: 'SEMANA', label: Text('Semana')),
             ButtonSegment(value: 'MES', label: Text('Mes')),
+            ButtonSegment(value: 'ANIO', label: Text('Ano')),
           ],
           selected: {periodo},
           onSelectionChanged: (valor) {
             periodo = valor.first;
+            _recargar();
+          },
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<BicicleteroApp?>(
+          initialValue: bicicleteroSeleccionado,
+          decoration: const InputDecoration(
+            labelText: 'Bicicletero',
+            prefixIcon: Icon(Icons.location_on_outlined),
+          ),
+          items: [
+            const DropdownMenuItem<BicicleteroApp?>(
+              value: null,
+              child: Text('Todos los bicicleteros'),
+            ),
+            ...bicicleteros.map(
+              (bicicletero) => DropdownMenuItem<BicicleteroApp?>(
+                value: bicicletero,
+                child: Text(bicicletero.nombre),
+              ),
+            ),
+          ],
+          onChanged: (valor) {
+            bicicleteroSeleccionado = valor;
+            _recargar();
+          },
+        ),
+        const SizedBox(height: 12),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'TODOS', label: Text('Todo')),
+            ButtonSegment(value: 'CONFIRMADO', label: Text('Exitosos')),
+            ButtonSegment(value: 'DENEGADO', label: Text('Denegados')),
+          ],
+          selected: {estadoMovimiento},
+          onSelectionChanged: (valor) {
+            estadoMovimiento = valor.first;
             _recargar();
           },
         ),
@@ -2007,7 +2655,7 @@ class VistaPerfil extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 34,
-                  backgroundColor: ColoresUbb.azulInstitucional,
+                  backgroundColor: ColoresUbb.azulApp,
                   child: Text(
                     nombrePerfil.characters.first,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -2028,8 +2676,7 @@ class VistaPerfil extends StatelessWidget {
                 const SizedBox(height: 8),
                 Center(
                     child: ChipEstado(
-                        texto: rol.etiqueta,
-                        color: ColoresUbb.azulInstitucional)),
+                        texto: rol.etiqueta, color: ColoresUbb.azulApp)),
                 const SizedBox(height: 18),
                 _FilaDato(etiqueta: 'Correo', valor: correoPerfil),
                 _FilaDato(etiqueta: 'RUT', valor: rutPerfil),
@@ -2054,7 +2701,15 @@ class VistaPerfil extends StatelessWidget {
                     }
                   },
                   icon: const Icon(Icons.mark_email_unread_outlined),
-                  label: const Text('Enviar correo para cambiar contrasena'),
+                  label: const Text('Cambiar contrasena'),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Se enviara un correo electronico con un enlace seguro para cambiar tu contrasena.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: ColoresUbb.textoSecundario,
+                      ),
                 ),
               ],
             ),
@@ -2090,7 +2745,7 @@ class _TarjetaBicicletaUsuario extends StatelessWidget {
               children: [
                 const Icon(
                   Icons.pedal_bike,
-                  color: ColoresUbb.azulInstitucional,
+                  color: ColoresUbb.azulApp,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -2109,16 +2764,43 @@ class _TarjetaBicicletaUsuario extends StatelessWidget {
                 ),
               ],
             ),
-            if (bicicleta.fotoUrl != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                bicicleta.fotoUrl!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: ColoresUbb.textoSecundario,
-                    ),
-              ),
+            if (bicicleta.fotoUrl != null &&
+                bicicleta.fotoUrl!.startsWith('data:image')) ...[
+              const SizedBox(height: 12),
+              _ImagenBicicleta(fotoDataUrl: bicicleta.fotoUrl!),
+            ],
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (bicicleta.marca?.isNotEmpty == true)
+                  ChipEstado(
+                      texto: bicicleta.marca!, color: ColoresUbb.azulApp),
+                if (bicicleta.modelo?.isNotEmpty == true)
+                  ChipEstado(
+                    texto: bicicleta.modelo!,
+                    color: ColoresUbb.azulInstitucional,
+                  ),
+                if (bicicleta.color?.isNotEmpty == true)
+                  ChipEstado(
+                      texto: bicicleta.color!, color: ColoresUbb.turquesa),
+                if (bicicleta.aro?.isNotEmpty == true)
+                  ChipEstado(
+                      texto: 'Aro ${bicicleta.aro}', color: ColoresUbb.exito),
+                ChipEstado(
+                  texto: bicicleta.dentroBicicletero
+                      ? 'Dentro: ${bicicleta.bicicleteroActualNombre ?? 'bicicletero'}'
+                      : 'Fuera',
+                  color: bicicleta.dentroBicicletero
+                      ? ColoresUbb.turquesa
+                      : ColoresUbb.textoSecundario,
+                ),
+              ],
+            ),
+            if (bicicleta.numeroSerie?.isNotEmpty == true) ...[
+              const SizedBox(height: 8),
+              _FilaDato(etiqueta: 'Serie', valor: bicicleta.numeroSerie!),
             ],
             const SizedBox(height: 12),
             Wrap(
@@ -2149,6 +2831,25 @@ class _TarjetaBicicletaUsuario extends StatelessWidget {
   }
 }
 
+class _ImagenBicicleta extends StatelessWidget {
+  const _ImagenBicicleta({required this.fotoDataUrl});
+
+  final String fotoDataUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.memory(
+        base64Decode(fotoDataUrl.split(',').last),
+        height: 150,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      ),
+    );
+  }
+}
+
 class _QrTemporal extends StatelessWidget {
   const _QrTemporal({
     required this.token,
@@ -2162,44 +2863,55 @@ class _QrTemporal extends StatelessWidget {
   Widget build(BuildContext context) {
     final expirado = segundosRestantes <= 0;
 
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Opacity(
-          opacity: expirado ? 0.24 : 1,
-          child: QrImageView(
-            data: token,
-            version: QrVersions.auto,
-            size: 260,
-            backgroundColor: Colors.white,
-            eyeStyle: const QrEyeStyle(
-              eyeShape: QrEyeShape.square,
-              color: ColoresUbb.azulOscuro,
-            ),
-            dataModuleStyle: const QrDataModuleStyle(
-              dataModuleShape: QrDataModuleShape.square,
-              color: ColoresUbb.azulOscuro,
-            ),
-          ),
-        ),
-        if (expirado)
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: ColoresUbb.rojoInstitucional,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Text(
-                'Expirado',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: ColoresUbb.bordeFuerte),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Opacity(
+              opacity: expirado ? 0.22 : 1,
+              child: QrImageView(
+                data: token,
+                version: QrVersions.auto,
+                size: 240,
+                backgroundColor: Colors.white,
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: ColoresUbb.azulOscuro,
+                ),
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: ColoresUbb.azulOscuro,
+                ),
               ),
             ),
-          ),
-      ],
+            if (expirado)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: ColoresUbb.rojoInstitucional,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Text(
+                    'Expirado',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2223,7 +2935,7 @@ class _EstadoLista extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icono, color: ColoresUbb.azulInstitucional, size: 42),
+            Icon(icono, color: ColoresUbb.azulApp, size: 42),
             const SizedBox(height: 10),
             Text(
               titulo,
@@ -2247,13 +2959,45 @@ class _EstadoLista extends StatelessWidget {
   }
 }
 
-class _TarjetaBicicletero extends StatelessWidget {
-  const _TarjetaBicicletero({required this.bicicletero});
+class _TituloApartado extends StatelessWidget {
+  const _TituloApartado({required this.titulo, this.onRefresh});
 
-  final BicicleteroDemo bicicletero;
+  final String titulo;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            titulo,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w900),
+          ),
+        ),
+        if (onRefresh != null)
+          IconButton(
+            tooltip: 'Actualizar',
+            onPressed: onRefresh,
+            icon: const Icon(Icons.refresh),
+          ),
+      ],
+    );
+  }
+}
+
+class _TarjetaBicicleteroApp extends StatelessWidget {
+  const _TarjetaBicicleteroApp({required this.bicicletero});
+
+  final BicicleteroApp bicicletero;
+
+  @override
+  Widget build(BuildContext context) {
+    final uso = (bicicletero.porcentajeUso / 100).clamp(0.0, 1.0);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -2263,7 +3007,7 @@ class _TarjetaBicicletero extends StatelessWidget {
             Row(
               children: [
                 const Icon(Icons.location_on_outlined,
-                    color: ColoresUbb.azulInstitucional),
+                    color: ColoresUbb.azulApp),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -2274,8 +3018,11 @@ class _TarjetaBicicletero extends StatelessWidget {
                   ),
                 ),
                 ChipEstado(
-                    texto: '${bicicletero.ocupacion}%',
-                    color: ColoresUbb.exito),
+                  texto: '${bicicletero.porcentajeUso}%',
+                  color: uso >= 0.9
+                      ? ColoresUbb.rojoInstitucional
+                      : ColoresUbb.exito,
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -2287,12 +3034,72 @@ class _TarjetaBicicletero extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             LinearProgressIndicator(
-              value: bicicletero.ocupacion / 100,
-              backgroundColor:
-                  ColoresUbb.grisInstitucional.withValues(alpha: 0.35),
-              color: ColoresUbb.azulInstitucional,
+              value: uso,
+              backgroundColor: ColoresUbb.superficieAzul,
+              color: uso >= 0.9
+                  ? ColoresUbb.rojoInstitucional
+                  : ColoresUbb.azulApp,
               minHeight: 8,
               borderRadius: BorderRadius.circular(999),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _DatoCompacto(
+                    etiqueta: 'Ocupados',
+                    valor: '${bicicletero.ocupados}/${bicicletero.capacidad}',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _DatoCompacto(
+                    etiqueta: 'Disponibles',
+                    valor: '${bicicletero.cuposDisponibles}',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DatoCompacto extends StatelessWidget {
+  const _DatoCompacto({required this.etiqueta, required this.valor});
+
+  final String etiqueta;
+  final String valor;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: ColoresUbb.superficieAzulSuave,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: ColoresUbb.borde),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              etiqueta,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: ColoresUbb.textoSecundario,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              valor,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: ColoresUbb.azulOscuro,
+                    fontWeight: FontWeight.w900,
+                  ),
             ),
           ],
         ),
@@ -2325,8 +3132,7 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.support_agent,
-                    color: ColoresUbb.azulInstitucional),
+                const Icon(Icons.support_agent, color: ColoresUbb.azulApp),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -2371,6 +3177,15 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
                 valor: solicitud.guardiaAsignado!.nombre,
               ),
             ],
+            if (solicitud.guardiasAsignados.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _FilaDato(
+                etiqueta: 'Guardias asignados',
+                valor: solicitud.guardiasAsignados
+                    .map((guardia) => guardia.nombre)
+                    .join(', '),
+              ),
+            ],
             if (solicitud.mensaje != null && solicitud.mensaje!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
@@ -2384,6 +3199,14 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
                 spacing: 10,
                 runSpacing: 10,
                 children: [
+                  if (solicitud.guardiaAsignado != null)
+                    OutlinedButton.icon(
+                      onPressed: solicitud.estado == 'NOTIFICADA'
+                          ? null
+                          : () => _actualizar(context, 'NOTIFICADA'),
+                      icon: const Icon(Icons.notifications_active_outlined),
+                      label: const Text('Notificar'),
+                    ),
                   OutlinedButton.icon(
                     onPressed: solicitud.estado == 'VISTA'
                         ? null
@@ -2442,6 +3265,7 @@ String _etiquetaTipoSolicitud(String tipo) {
 String _etiquetaEstadoSolicitud(String estado) {
   return switch (estado) {
     'PENDIENTE' => 'Pendiente',
+    'NOTIFICADA' => 'Notificada',
     'VISTA' => 'Vista',
     'EN_CAMINO' => 'En camino',
     'RESUELTA' => 'Resuelta',
@@ -2453,8 +3277,9 @@ String _etiquetaEstadoSolicitud(String estado) {
 Color _colorEstadoSolicitud(String estado) {
   return switch (estado) {
     'PENDIENTE' => ColoresUbb.rojoInstitucional,
-    'VISTA' => ColoresUbb.amarilloInstitucional,
-    'EN_CAMINO' => ColoresUbb.azulInstitucional,
+    'NOTIFICADA' => ColoresUbb.azulApp,
+    'VISTA' => ColoresUbb.turquesa,
+    'EN_CAMINO' => ColoresUbb.azulApp,
     'RESUELTA' => ColoresUbb.exito,
     'CANCELADA' => ColoresUbb.textoSecundario,
     _ => ColoresUbb.azulInstitucional,
@@ -2504,7 +3329,7 @@ class _IndicadorCentral extends StatelessWidget {
             Text(
               valor,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: ColoresUbb.azulInstitucional,
+                    color: ColoresUbb.azulApp,
                     fontWeight: FontWeight.w900,
                   ),
             ),
@@ -2533,26 +3358,42 @@ class _FilaDato extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              etiqueta,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: ColoresUbb.textoSecundario,
-                  ),
-            ),
-          ),
-          Flexible(
-            child: Text(
-              valor,
-              textAlign: TextAlign.end,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compacto = constraints.maxWidth < 360 || valor.length > 34;
+          final etiquetaWidget = Text(
+            etiqueta,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: ColoresUbb.textoSecundario,
+                ),
+          );
+          final valorWidget = Text(
+            valor,
+            textAlign: compacto ? TextAlign.start : TextAlign.end,
+            softWrap: true,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          );
+
+          if (compacto) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                etiquetaWidget,
+                const SizedBox(height: 2),
+                valorWidget,
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: etiquetaWidget),
+              Flexible(child: valorWidget),
+            ],
+          );
+        },
       ),
     );
   }
@@ -2572,7 +3413,7 @@ class _EncabezadoSeccion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: ColoresUbb.azulInstitucional,
+      color: ColoresUbb.azulNoche,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Row(
@@ -2585,7 +3426,7 @@ class _EncabezadoSeccion extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icono, color: ColoresUbb.amarilloInstitucional),
+              child: Icon(icono, color: ColoresUbb.turquesa),
             ),
             const SizedBox(width: 14),
             Expanded(

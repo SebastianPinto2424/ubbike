@@ -13,7 +13,7 @@ type DatosGenerarQr = {
   usuarioId: string;
   bicicletaId?: string;
   bicicleteroId?: string;
-  tipo: TipoMovimiento;
+  tipo?: TipoMovimiento;
 };
 
 const repoQr = () => fuenteDatos.getRepository(CodigoQrTemporal);
@@ -38,16 +38,15 @@ const buscarBicicletaParaQr = async (usuarioId: string, bicicletaId?: string) =>
   const bicicleta = await repoBicicletas().findOne({
     where,
     relations: {
-      usuario: true
+      usuario: true,
+      bicicleteroActual: true
     }
   });
 
   if (!bicicleta) {
     throw new ErrorHttp(
       404,
-      bicicletaId
-        ? 'Bicicleta no encontrada'
-        : 'Debes activar una bicicleta antes de generar el QR'
+      bicicletaId ? 'Bicicleta no encontrada' : 'Debes activar una bicicleta antes de generar el QR'
     );
   }
 
@@ -56,12 +55,26 @@ const buscarBicicletaParaQr = async (usuarioId: string, bicicletaId?: string) =>
 
 export const generarQrTemporal = async (datos: DatosGenerarQr) => {
   const bicicleta = await buscarBicicletaParaQr(datos.usuarioId, datos.bicicletaId);
+  const tipo =
+    datos.tipo ?? (bicicleta.dentroBicicletero ? TipoMovimiento.SALIDA : TipoMovimiento.INGRESO);
   const bicicletero = datos.bicicleteroId
     ? await repoBicicleteros().findOneBy({ id: datos.bicicleteroId })
-    : null;
+    : bicicleta.bicicleteroActual;
 
   if (datos.bicicleteroId && !bicicletero) {
     throw new ErrorHttp(404, 'Bicicletero no encontrado');
+  }
+
+  if (tipo === TipoMovimiento.INGRESO && !bicicletero) {
+    throw new ErrorHttp(400, 'Selecciona un bicicletero para generar QR de ingreso');
+  }
+
+  if (tipo === TipoMovimiento.SALIDA && !bicicleta.dentroBicicletero) {
+    throw new ErrorHttp(409, 'La bicicleta no registra ingreso activo');
+  }
+
+  if (tipo === TipoMovimiento.INGRESO && bicicleta.dentroBicicletero) {
+    throw new ErrorHttp(409, 'La bicicleta ya registra ingreso activo');
   }
 
   await repoQr().update(
@@ -84,7 +97,7 @@ export const generarQrTemporal = async (datos: DatosGenerarQr) => {
       usuario: { id: datos.usuarioId } as Usuario,
       bicicleta,
       bicicletero,
-      tipo: datos.tipo,
+      tipo,
       expiraEn,
       usado: false
     })

@@ -1,0 +1,62 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - rama-dev
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  backend-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ubbike/backend
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ubbike/backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Validar tipos de TypeScript
+        run: npm run typecheck
+
+      - name: Ejecutar Linter
+        run: npm run lint
+
+  mobile-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ubbike/mobile
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.27.0"
+          channel: "stable"
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Formato y Linting
+        run: dart analyze
+
+      - name: Build Web Check
+        run: flutter build web --release

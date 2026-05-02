@@ -29,7 +29,7 @@ export const middlewareAutenticacion = (
   try {
     req.usuario = jwt.verify(token, entorno.jwt.secreto) as CargaToken;
     return next();
-  } catch (_error) {
+  } catch {
     return res.status(401).json({
       message: 'Token de autenticacion invalido o expirado'
     });

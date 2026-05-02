@@ -7,6 +7,9 @@ import { RolUsuario } from './rol-usuario';
 import { Usuario } from './usuario.entidad';
 
 type DatosActualizarPermisos = {
+  nombre?: string;
+  correo?: string;
+  rut?: string | null;
   rol?: RolUsuario;
   cuentaActiva?: boolean;
   correoVerificado?: boolean;
@@ -37,6 +40,18 @@ export const actualizarPermisosUsuario = async (
 
   if (datos.rol !== undefined) {
     usuario.rol = datos.rol;
+  }
+
+  if (datos.nombre !== undefined) {
+    usuario.nombre = datos.nombre;
+  }
+
+  if (datos.correo !== undefined) {
+    usuario.correo = datos.correo.toLowerCase();
+  }
+
+  if (datos.rut !== undefined) {
+    usuario.rut = datos.rut || null;
   }
 
   if (datos.cuentaActiva !== undefined) {

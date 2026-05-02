@@ -23,18 +23,18 @@ class MarcaUbbike extends StatelessWidget {
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
-            color: sobreAzul ? Colors.white : ColoresUbb.superficie,
+            color: sobreAzul ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: sobreAzul
                   ? Colors.white.withValues(alpha: 0.72)
-                  : ColoresUbb.borde,
+                  : Colors.transparent,
             ),
           ),
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: compacta ? 8 : 12,
-              vertical: compacta ? 4 : 8,
+              horizontal: compacta ? 4 : 0,
+              vertical: compacta ? 4 : 0,
             ),
             child: Image.asset(
               'assets/imagenes/ubbike-logo-transparente.png',
@@ -47,12 +47,12 @@ class MarcaUbbike extends StatelessWidget {
           ),
         ),
         if (!compacta) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
-            'Gestion segura de bicicleteros UBB',
+            'Universidad del Bio-Bio',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: ColoresUbb.azulOscuro,
-                  fontWeight: FontWeight.w800,
+                  color: ColoresUbb.turquesa,
+                  fontWeight: FontWeight.w900,
                 ),
           ),
         ],

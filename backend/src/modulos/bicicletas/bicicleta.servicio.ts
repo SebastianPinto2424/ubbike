@@ -6,12 +6,22 @@ import { Bicicleta } from './bicicleta.entidad';
 type DatosCrearBicicleta = {
   usuarioId: string;
   descripcion: string;
+  marca?: string | null;
+  modelo?: string | null;
+  color?: string | null;
+  aro?: string | null;
+  numeroSerie?: string | null;
   fotoUrl?: string | null;
   activar?: boolean;
 };
 
 type DatosActualizarBicicleta = {
   descripcion?: string;
+  marca?: string | null;
+  modelo?: string | null;
+  color?: string | null;
+  aro?: string | null;
+  numeroSerie?: string | null;
   fotoUrl?: string | null;
 };
 
@@ -20,6 +30,11 @@ const repositorioBicicletas = () => fuenteDatos.getRepository(Bicicleta);
 const mapearBicicleta = (bicicleta: Bicicleta) => ({
   id: bicicleta.id,
   descripcion: bicicleta.descripcion,
+  marca: bicicleta.marca,
+  modelo: bicicleta.modelo,
+  color: bicicleta.color,
+  aro: bicicleta.aro,
+  numeroSerie: bicicleta.numeroSerie,
   fotoUrl: bicicleta.fotoUrl,
   activa: bicicleta.activa,
   dentroBicicletero: bicicleta.dentroBicicletero,
@@ -119,6 +134,11 @@ export const crearBicicleta = async (datos: DatosCrearBicicleta) => {
   const bicicleta = repositorioBicicletas().create({
     usuario: { id: datos.usuarioId } as Usuario,
     descripcion: datos.descripcion,
+    marca: datos.marca || null,
+    modelo: datos.modelo || null,
+    color: datos.color || null,
+    aro: datos.aro || null,
+    numeroSerie: datos.numeroSerie || null,
     fotoUrl: datos.fotoUrl || null,
     activa: totalBicicletas === 0 || datos.activar === true,
     dentroBicicletero: false,
@@ -146,6 +166,26 @@ export const actualizarBicicleta = async (
     bicicleta.descripcion = datos.descripcion;
   }
 
+  if (datos.marca !== undefined) {
+    bicicleta.marca = datos.marca || null;
+  }
+
+  if (datos.modelo !== undefined) {
+    bicicleta.modelo = datos.modelo || null;
+  }
+
+  if (datos.color !== undefined) {
+    bicicleta.color = datos.color || null;
+  }
+
+  if (datos.aro !== undefined) {
+    bicicleta.aro = datos.aro || null;
+  }
+
+  if (datos.numeroSerie !== undefined) {
+    bicicleta.numeroSerie = datos.numeroSerie || null;
+  }
+
   if (datos.fotoUrl !== undefined) {
     bicicleta.fotoUrl = datos.fotoUrl || null;
   }
@@ -158,7 +198,8 @@ export const eliminarBicicleta = async (usuarioId: string, bicicletaId: string) 
   const bicicleta = await buscarBicicletaUsuario(usuarioId, bicicletaId);
   const estabaActiva = bicicleta.activa;
 
-  await repositorioBicicletas().remove(bicicleta);
+  // Soft delete para mantener historial/auditoria
+  await repositorioBicicletas().softRemove(bicicleta);
 
   if (estabaActiva) {
     const siguiente = await repositorioBicicletas().findOne({

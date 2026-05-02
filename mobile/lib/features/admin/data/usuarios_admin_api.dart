@@ -19,6 +19,9 @@ class UsuariosAdminApi {
 
   Future<UsuarioApp> actualizarPermisos({
     required String usuarioId,
+    String? nombre,
+    String? correo,
+    String? rut,
     RolUsuario? rol,
     bool? cuentaActiva,
     bool? correoVerificado,
@@ -26,6 +29,9 @@ class UsuariosAdminApi {
     final respuesta = await cliente.patch(
       '/usuarios/$usuarioId/permisos',
       body: {
+        if (nombre != null) 'nombre': nombre,
+        if (correo != null) 'correo': correo,
+        if (rut != null) 'rut': rut,
         if (rol != null) 'rol': rol.valorApi,
         if (cuentaActiva != null) 'cuentaActiva': cuentaActiva,
         if (correoVerificado != null) 'correoVerificado': correoVerificado,

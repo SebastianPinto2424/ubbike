@@ -8,7 +8,7 @@ class TarjetaAccion extends StatelessWidget {
     required this.icono,
     required this.titulo,
     required this.detalle,
-    this.color = ColoresUbb.azulInstitucional,
+    this.color = ColoresUbb.azulApp,
     this.onTap,
   });
 
@@ -25,15 +25,16 @@ class TarjetaAccion extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(15),
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                  color: color.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: color.withValues(alpha: 0.18)),
                 ),
                 child: Icon(icono, color: color),
               ),
@@ -53,6 +54,7 @@ class TarjetaAccion extends StatelessWidget {
                       detalle,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: ColoresUbb.textoSecundario,
+                            height: 1.32,
                           ),
                     ),
                   ],

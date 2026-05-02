@@ -32,7 +32,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColoresUbb.azulInstitucional,
+      backgroundColor: ColoresUbb.azulNoche,
       body: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
@@ -43,18 +43,18 @@ class _PantallaLoginState extends State<PantallaLogin> {
                   const _CabeceraIngreso(),
                   ConstrainedBox(
                     constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight - 238,
+                      minHeight: constraints.maxHeight - 222,
                     ),
                     child: DecoratedBox(
                       decoration: const BoxDecoration(
                         color: ColoresUbb.fondo,
                         borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(26),
+                          top: Radius.circular(18),
                         ),
                       ),
                       child: ContenedorResponsivo(
                         anchoMaximo: 520,
-                        padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -230,14 +230,14 @@ class _CabeceraIngreso extends StatelessWidget {
       bottom: false,
       child: ContenedorResponsivo(
         anchoMaximo: 520,
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 26),
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const MarcaUbbike(compacta: true, sobreAzul: true),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             Text(
-              'Ingreso seguro',
+              'UBBike',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -245,7 +245,7 @@ class _CabeceraIngreso extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Control digital de bicicletas para estudiantes, funcionarios, guardias y administracion central.',
+              'Acceso institucional para registrar, validar y revisar movimientos de bicicletas.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white.withValues(alpha: 0.86),
                     height: 1.35,
@@ -296,7 +296,7 @@ class _InsigniaCabecera extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icono, size: 17, color: ColoresUbb.amarilloInstitucional),
+            Icon(icono, size: 17, color: ColoresUbb.turquesa),
             const SizedBox(width: 6),
             Text(
               texto,
@@ -343,7 +343,7 @@ class _FormularioIngreso extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: ColoresUbb.azulInstitucional,
+                    color: ColoresUbb.azulApp,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.lock_outline, color: Colors.white),
@@ -362,7 +362,7 @@ class _FormularioIngreso extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Usa tu correo UBB registrado.',
+                        'Usa tu correo UBB para continuar.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: ColoresUbb.textoSecundario,
                             ),
@@ -432,16 +432,16 @@ class _AvisoSeguridad extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: ColoresUbb.amarilloInstitucional.withValues(alpha: 0.18),
+        color: ColoresUbb.turquesa.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ColoresUbb.amarilloInstitucional),
+        border: Border.all(color: ColoresUbb.turquesa.withValues(alpha: 0.42)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.security_outlined, color: ColoresUbb.azulOscuro),
+            const Icon(Icons.security_outlined, color: ColoresUbb.azulApp),
             const SizedBox(width: 10),
             Expanded(
               child: Text(

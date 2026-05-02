@@ -15,12 +15,12 @@ class PantallaRegistro extends StatefulWidget {
 }
 
 class _PantallaRegistroState extends State<PantallaRegistro> {
+  final formKey = GlobalKey<FormState>();
   final nombreController = TextEditingController();
   final rutController = TextEditingController();
   final correoController = TextEditingController();
   final contrasenaController = TextEditingController();
   final autenticacionApi = AutenticacionApi();
-  RolUsuario rolSolicitado = RolUsuario.estudiante;
   bool cargando = false;
 
   @override
@@ -35,7 +35,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Solicitar registro')),
+      appBar: AppBar(title: const Text('Registro')),
       body: ContenedorResponsivo(
         anchoMaximo: 560,
         child: ListView(
@@ -43,7 +43,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
             const MarcaUbbike(compacta: true),
             const SizedBox(height: 22),
             Text(
-              'Registro con verificacion',
+              'Solicitar cuenta',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: ColoresUbb.azulOscuro,
                     fontWeight: FontWeight.w900,
@@ -60,81 +60,101 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextField(
-                      controller: nombreController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre completo',
-                        prefixIcon: Icon(Icons.person_outline),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: nombreController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre completo',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        textInputAction: TextInputAction.next,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'El nombre es obligatorio.';
+                          }
+                          if (value.trim().length < 3) {
+                            return 'El nombre debe tener al menos 3 caracteres.';
+                          }
+                          return null;
+                        },
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: rutController,
-                      decoration: const InputDecoration(
-                        labelText: 'RUT',
-                        prefixIcon: Icon(Icons.badge_outlined),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: rutController,
+                        decoration: const InputDecoration(
+                          labelText: 'RUT',
+                          prefixIcon: Icon(Icons.badge_outlined),
+                        ),
+                        textInputAction: TextInputAction.next,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'El RUT es obligatorio.';
+                          }
+                          final rutRegex = RegExp(r'^\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]$');
+                          if (!rutRegex.hasMatch(value)) {
+                            return 'Formato incorrecto. Ej: 12.345.678-9 o 12345678-9';
+                          }
+                          return null;
+                        },
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: correoController,
-                      decoration: const InputDecoration(
-                        labelText: 'Correo institucional',
-                        prefixIcon: Icon(Icons.mail_outline),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: correoController,
+                        decoration: const InputDecoration(
+                          labelText: 'Correo institucional',
+                          prefixIcon: Icon(Icons.mail_outline),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'El correo es obligatorio.';
+                          }
+                          if (!value.endsWith('@ubiobio.cl') && !value.endsWith('@alumnos.ubiobio.cl')) {
+                            return 'Debe ser @ubiobio.cl o @alumnos.ubiobio.cl';
+                          }
+                          return null;
+                        },
                       ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: contrasenaController,
-                      decoration: const InputDecoration(
-                        labelText: 'Contrasena',
-                        prefixIcon: Icon(Icons.lock_outline),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: contrasenaController,
+                        decoration: const InputDecoration(
+                          labelText: 'Contrasena',
+                          prefixIcon: Icon(Icons.lock_outline),
+                        ),
+                        obscureText: true,
+                        textInputAction: TextInputAction.next,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'La contrasena es obligatoria.';
+                          }
+                          if (value.length < 8) {
+                            return 'La contrasena debe tener al menos 8 caracteres.';
+                          }
+                          return null;
+                        },
                       ),
-                      obscureText: true,
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<RolUsuario>(
-                      initialValue: rolSolicitado,
-                      decoration: const InputDecoration(
-                        labelText: 'Tipo de cuenta solicitada',
-                        prefixIcon: Icon(Icons.manage_accounts_outlined),
+                      const SizedBox(height: 18),
+                      ElevatedButton.icon(
+                        onPressed: cargando ? null : _registrar,
+                        icon: cargando
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.mark_email_read_outlined),
+                        label: Text(
+                          cargando ? 'Enviando...' : 'Enviar solicitud',
+                        ),
                       ),
-                      items: RolUsuario.values
-                          .where((rol) => rol != RolUsuario.administrador)
-                          .map(
-                            (rol) => DropdownMenuItem(
-                              value: rol,
-                              child: Text(rol.etiqueta),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (rol) {
-                        if (rol != null) {
-                          setState(() => rolSolicitado = rol);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    ElevatedButton.icon(
-                      onPressed: cargando ? null : _registrar,
-                      icon: cargando
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.mark_email_read_outlined),
-                      label: Text(
-                        cargando
-                            ? 'Enviando...'
-                            : 'Enviar correo de verificacion',
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -145,23 +165,24 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
   }
 
   Future<void> _registrar() async {
-    if (nombreController.text.trim().isEmpty ||
-        rutController.text.trim().isEmpty ||
-        correoController.text.trim().isEmpty ||
-        contrasenaController.text.isEmpty) {
-      _mostrarMensaje('Completa todos los campos');
+    if (formKey.currentState?.validate() != true) {
       return;
     }
 
     setState(() => cargando = true);
 
     try {
+      final correo = correoController.text.trim();
+      final rolDeterminado = correo.endsWith('@alumnos.ubiobio.cl')
+          ? RolUsuario.estudiante
+          : RolUsuario.funcionario;
+
       final mensaje = await autenticacionApi.registrar(
         nombre: nombreController.text.trim(),
         rut: rutController.text.trim(),
-        correo: correoController.text.trim(),
+        correo: correo,
         contrasena: contrasenaController.text,
-        rol: rolSolicitado,
+        rol: rolDeterminado,
       );
 
       if (mounted) {

@@ -168,7 +168,7 @@ const registrarMovimiento = async ({
     mensaje:
       estado === EstadoMovimiento.CONFIRMADO
         ? `${bicicleta.descripcion} fue registrada en ${bicicletero.nombre}.`
-        : motivo ?? 'Operacion denegada por guardia.',
+        : (motivo ?? 'Operacion denegada por guardia.'),
     tipo: TipoNotificacion.MOVIMIENTO,
     datos: {
       movimientoId: movimiento.id,
@@ -279,9 +279,7 @@ export const registrarGestionManual = async (datos: DatosGestionManual) => {
     bicicleta.bicicleteroActual
   );
 
-  const estado = datos.denegar
-    ? EstadoMovimiento.DENEGADO
-    : EstadoMovimiento.CONFIRMADO;
+  const estado = datos.denegar ? EstadoMovimiento.DENEGADO : EstadoMovimiento.CONFIRMADO;
 
   if (estado === EstadoMovimiento.CONFIRMADO) {
     validarReglaMovimiento(bicicleta, datos.tipo);

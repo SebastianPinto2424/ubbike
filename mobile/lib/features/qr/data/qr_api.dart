@@ -1,5 +1,6 @@
 import '../../../core/servicios/cliente_api.dart';
 import '../../../shared/modelos/bicicleta_app.dart';
+import '../../../shared/modelos/bicicletero_app.dart';
 import '../../../shared/servicios/sesion_actual.dart';
 
 class QrTemporalApp {
@@ -9,6 +10,7 @@ class QrTemporalApp {
     required this.duracionSegundos,
     required this.expiraEn,
     required this.bicicleta,
+    this.bicicletero,
   });
 
   final String token;
@@ -16,9 +18,12 @@ class QrTemporalApp {
   final int duracionSegundos;
   final DateTime expiraEn;
   final BicicletaApp bicicleta;
+  final BicicleteroApp? bicicletero;
 
   factory QrTemporalApp.desdeJson(Map<String, dynamic> json) {
     final bicicletaJson = json['bicicleta'] as Map<String, dynamic>;
+    final bicicleteroJson = json['bicicletero'] as Map<String, dynamic>?;
+
     return QrTemporalApp(
       token: json['token'] as String,
       tipo: json['tipo'] as String,
@@ -29,7 +34,11 @@ class QrTemporalApp {
         descripcion: bicicletaJson['descripcion'] as String,
         fotoUrl: null,
         activa: true,
+        dentroBicicletero: json['tipo'] == 'SALIDA',
       ),
+      bicicletero: bicicleteroJson == null
+          ? null
+          : BicicleteroApp.desdeJson(bicicleteroJson),
     );
   }
 }
@@ -41,13 +50,15 @@ class QrApi {
 
   Future<QrTemporalApp> generar({
     String? bicicletaId,
-    String tipo = 'INGRESO',
+    String? bicicleteroId,
+    String? tipo,
   }) async {
     final respuesta = await cliente.post(
       '/qr/generar',
       body: {
         if (bicicletaId != null) 'bicicletaId': bicicletaId,
-        'tipo': tipo,
+        if (bicicleteroId != null) 'bicicleteroId': bicicleteroId,
+        if (tipo != null) 'tipo': tipo,
       },
     );
 

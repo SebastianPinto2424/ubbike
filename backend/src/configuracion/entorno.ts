@@ -24,7 +24,10 @@ export const entorno = {
     usuario: process.env.DB_USER ?? 'ubbike',
     contrasena: process.env.DB_PASSWORD ?? 'ubbike',
     nombre: process.env.DB_NAME ?? 'ubbike',
-    sincronizar: convertirBooleano(process.env.DB_SYNCHRONIZE, true)
+    sincronizar: convertirBooleano(
+      process.env.DB_SYNCHRONIZE,
+      process.env.NODE_ENV !== 'production'
+    )
   },
   jwt: {
     secreto: process.env.JWT_SECRET ?? 'cambiar-este-secreto-en-produccion',

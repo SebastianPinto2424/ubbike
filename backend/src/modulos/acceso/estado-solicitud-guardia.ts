@@ -1,5 +1,6 @@
 export enum EstadoSolicitudGuardia {
   PENDIENTE = 'PENDIENTE',
+  NOTIFICADA = 'NOTIFICADA',
   VISTA = 'VISTA',
   EN_CAMINO = 'EN_CAMINO',
   RESUELTA = 'RESUELTA',

@@ -14,6 +14,7 @@ class SolicitudGuardiaApp {
     this.guardiaAsignado,
     this.mensaje,
     this.resueltaEn,
+    this.guardiasAsignados = const [],
   });
 
   final String id;
@@ -23,11 +24,13 @@ class SolicitudGuardiaApp {
   final BicicleteroApp bicicletero;
   final UsuarioApp solicitante;
   final UsuarioApp? guardiaAsignado;
+  final List<UsuarioApp> guardiasAsignados;
   final DateTime creadaEn;
   final DateTime? resueltaEn;
 
   factory SolicitudGuardiaApp.desdeJson(Map<String, dynamic> json) {
     final guardia = json['guardiaAsignado'] as Map<String, dynamic>?;
+    final guardias = json['guardiasAsignados'] as List<dynamic>? ?? const [];
 
     return SolicitudGuardiaApp(
       id: json['id'] as String,
@@ -41,6 +44,10 @@ class SolicitudGuardiaApp {
         json['solicitante'] as Map<String, dynamic>,
       ),
       guardiaAsignado: guardia == null ? null : UsuarioApp.desdeJson(guardia),
+      guardiasAsignados: guardias
+          .whereType<Map<String, dynamic>>()
+          .map(UsuarioApp.desdeJson)
+          .toList(),
       creadaEn: DateTime.parse(json['creadaEn'] as String),
       resueltaEn: json['resueltaEn'] == null
           ? null

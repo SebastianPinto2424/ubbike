@@ -45,11 +45,13 @@ const usuariosDemo = [
 const bicicleterosBase = [
   {
     nombre: 'Bicicletero Central',
-    ubicacion: 'Acceso principal Universidad del Bio-Bio'
+    ubicacion: 'Acceso principal Universidad del Bio-Bio',
+    capacidad: 80
   },
   {
     nombre: 'Bicicletero Biblioteca',
-    ubicacion: 'Sector Biblioteca Central'
+    ubicacion: 'Sector Biblioteca Central',
+    capacidad: 55
   }
 ];
 
@@ -114,6 +116,11 @@ export const cargarDatosIniciales = async (): Promise<void> => {
           activo: true
         })
       );
+    } else {
+      existente.ubicacion = bicicleteroBase.ubicacion;
+      existente.capacidad = bicicleteroBase.capacidad;
+      existente.activo = true;
+      await bicicleteros.save(existente);
     }
   }
 

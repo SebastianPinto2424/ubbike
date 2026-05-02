@@ -1,7 +1,14 @@
 import { Router } from 'express';
 import { middlewareAutenticacion } from '../../comun/middlewares/autenticacion.middleware';
 import { validarCuerpo } from '../../comun/middlewares/validar-cuerpo.middleware';
-import { activar, actualizar, crear, eliminar, listar, obtenerActiva } from './bicicleta.controlador';
+import {
+  activar,
+  actualizar,
+  crear,
+  eliminar,
+  listar,
+  obtenerActiva
+} from './bicicleta.controlador';
 import { esquemaActualizarBicicleta, esquemaCrearBicicleta } from './bicicleta.validacion';
 
 const rutasBicicletas = Router();

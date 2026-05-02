@@ -22,6 +22,9 @@ export class Bicicletero {
   @Column({ length: 255 })
   ubicacion!: string;
 
+  @Column({ default: 80 })
+  capacidad!: number;
+
   @Column({ default: true })
   activo!: boolean;
 

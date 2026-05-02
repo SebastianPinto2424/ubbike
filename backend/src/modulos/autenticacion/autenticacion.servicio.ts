@@ -8,7 +8,10 @@ import {
   crearCorreoVerificacion,
   enviarCorreo
 } from '../correos/correo.servicio';
-import { crearNotificacion, notificarUsuariosPorRol } from '../notificaciones/notificacion.servicio';
+import {
+  crearNotificacion,
+  notificarUsuariosPorRol
+} from '../notificaciones/notificacion.servicio';
 import { TipoNotificacion } from '../notificaciones/tipo-notificacion';
 import { mapearUsuarioPublico } from '../usuarios/usuario.mapeador';
 import { obtenerRepositorioUsuarios } from '../usuarios/usuario.repositorio';

@@ -65,7 +65,7 @@ class _PantallaVerificarCorreoState extends State<PantallaVerificarCorreo> {
       icono: correcto
           ? Icons.check_circle_outline
           : Icons.mark_email_read_outlined,
-      color: correcto ? ColoresUbb.exito : ColoresUbb.azulInstitucional,
+      color: correcto ? ColoresUbb.exito : ColoresUbb.azulApp,
     );
   }
 }
