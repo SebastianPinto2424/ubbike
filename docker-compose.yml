@@ -1,0 +1,74 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ubbike_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ubbike
+      POSTGRES_USER: ubbike
+      POSTGRES_PASSWORD: ubbike
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ubbike -d ubbike"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ubbike_network
+
+  backend:
+    build:
+      context: ./backend
+    container_name: ubbike_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST: db
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      FRONTEND_URL: http://localhost:8081
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    networks:
+      - ubbike_network
+
+  mobile:
+    build:
+      context: ./mobile
+      args:
+        API_BASE_URL: http://localhost:3000
+    container_name: ubbike_mobile
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    networks:
+      - ubbike_network
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ubbike_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - ubbike_network
+
+volumes:
+  postgres_data:
+
+networks:
+  ubbike_network:
+    name: ubbike_network
+    driver: bridge

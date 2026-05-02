@@ -1,0 +1,4 @@
+export enum TipoSolicitudGuardia {
+  GUARDIA_AUSENTE = 'GUARDIA_AUSENTE',
+  REQUIERE_SERVICIO = 'REQUIERE_SERVICIO'
+}

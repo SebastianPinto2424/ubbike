@@ -1,0 +1,6 @@
+export enum EstadoIncidencia {
+  PENDIENTE = 'PENDIENTE',
+  EN_REVISION = 'EN_REVISION',
+  RESUELTA = 'RESUELTA',
+  DESCARTADA = 'DESCARTADA'
+}
