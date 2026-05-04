@@ -6,7 +6,7 @@ void main() {
     await tester.pumpWidget(const AplicacionUBBike());
 
     expect(find.bySemanticsLabel('Logo UBBike'), findsOneWidget);
-    expect(find.text('UBBike'), findsOneWidget);
-    expect(find.text('Ingresar'), findsOneWidget);
+    expect(find.text('Control de bicicleteros UBB'), findsOneWidget);
+    expect(find.text('Iniciar sesion'), findsOneWidget);
   });
 }

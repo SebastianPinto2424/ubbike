@@ -71,6 +71,7 @@ export const cargarDatosIniciales = async (): Promise<void> => {
     centralAnterior.rol = RolUsuario.ADMIN_CENTRAL;
     centralAnterior.cuentaActiva = true;
     centralAnterior.correoVerificado = true;
+    centralAnterior.tokenVerificacionCorreoExpiraEn = null;
     await usuarios.save(centralAnterior);
   }
 
@@ -84,6 +85,7 @@ export const cargarDatosIniciales = async (): Promise<void> => {
       existente.cuentaActiva = true;
       existente.correoVerificado = true;
       existente.tokenVerificacionCorreo = null;
+      existente.tokenVerificacionCorreoExpiraEn = null;
       await usuarios.save(existente);
       continue;
     }

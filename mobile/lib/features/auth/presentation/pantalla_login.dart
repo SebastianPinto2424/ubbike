@@ -43,7 +43,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
                   const _CabeceraIngreso(),
                   ConstrainedBox(
                     constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight - 222,
+                      minHeight: constraints.maxHeight - 246,
                     ),
                     child: DecoratedBox(
                       decoration: const BoxDecoration(
@@ -54,7 +54,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
                       ),
                       child: ContenedorResponsivo(
                         anchoMaximo: 520,
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -230,14 +230,49 @@ class _CabeceraIngreso extends StatelessWidget {
       bottom: false,
       child: ContenedorResponsivo(
         anchoMaximo: 520,
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const MarcaUbbike(compacta: true, sobreAzul: true),
-            const SizedBox(height: 22),
+            Row(
+              children: [
+                const MarcaUbbike(compacta: true, sobreAzul: true),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.18),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        child: Text(
+                          'Universidad del Bio-Bio',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             Text(
-              'UBBike',
+              'Control de bicicleteros UBB',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -245,7 +280,7 @@ class _CabeceraIngreso extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Acceso institucional para registrar, validar y revisar movimientos de bicicletas.',
+              'Plataforma institucional para registrar bicicletas, validar accesos y consultar movimientos de forma segura.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white.withValues(alpha: 0.86),
                     height: 1.35,
@@ -258,15 +293,15 @@ class _CabeceraIngreso extends StatelessWidget {
               children: [
                 _InsigniaCabecera(
                   icono: Icons.qr_code_2,
-                  texto: 'QR temporal',
+                  texto: 'Codigo QR',
                 ),
                 _InsigniaCabecera(
                   icono: Icons.verified_user_outlined,
-                  texto: 'Validacion',
+                  texto: 'Validacion segura',
                 ),
                 _InsigniaCabecera(
                   icono: Icons.history,
-                  texto: 'Historial',
+                  texto: 'Trazabilidad',
                 ),
               ],
             ),
@@ -354,7 +389,7 @@ class _FormularioIngreso extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Acceso institucional',
+                        'Inicio de sesion institucional',
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium
@@ -362,7 +397,7 @@ class _FormularioIngreso extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Usa tu correo UBB para continuar.',
+                        'Ingresa con tu correo institucional UBB.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: ColoresUbb.textoSecundario,
                             ),
@@ -410,13 +445,13 @@ class _FormularioIngreso extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.login),
-              label: Text(cargando ? 'Ingresando...' : 'Ingresar'),
+              label: Text(cargando ? 'Ingresando...' : 'Iniciar sesion'),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
               onPressed: onRegistro,
               icon: const Icon(Icons.mark_email_unread_outlined),
-              label: const Text('Solicitar registro'),
+              label: const Text('Solicitar cuenta institucional'),
             ),
           ],
         ),
@@ -445,7 +480,7 @@ class _AvisoSeguridad extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Registro y cambio de contrasena se validan mediante correo para mantener seguridad institucional.',
+                'El registro y la recuperacion de contrasena se validan mediante correo institucional.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: ColoresUbb.azulOscuro,
                       fontWeight: FontWeight.w700,

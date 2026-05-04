@@ -26,6 +26,19 @@ const separarLista = (valor: string | undefined, valorPorDefecto: string[]): str
     .filter(Boolean);
 };
 
+const convertirTrustProxy = (valor: string | undefined): boolean | number | string => {
+  if (!valor || ['false', '0', 'no'].includes(valor.toLowerCase())) {
+    return false;
+  }
+
+  if (['true', '1', 'yes', 'si'].includes(valor.toLowerCase())) {
+    return true;
+  }
+
+  const numero = Number(valor);
+  return Number.isNaN(numero) ? valor : numero;
+};
+
 const ambiente = process.env.NODE_ENV ?? 'development';
 const secretoJwt = process.env.JWT_SECRET ?? 'cambiar-este-secreto-en-produccion';
 const contrasenaBaseDatos = process.env.DB_PASSWORD ?? '';
@@ -67,6 +80,13 @@ export const entorno = {
       'http://localhost:8081',
       'http://127.0.0.1:8081'
     ])
+  },
+  servidor: {
+    trustProxy: convertirTrustProxy(process.env.TRUST_PROXY)
+  },
+  redis: {
+    url: process.env.REDIS_URL,
+    requerirParaLimitador: convertirBooleano(process.env.REQUIRE_REDIS_RATE_LIMIT, false)
   },
   correo: {
     host: process.env.SMTP_HOST,

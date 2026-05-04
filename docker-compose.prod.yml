@@ -19,6 +19,27 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  redis:
+    image: redis:7-alpine
+    container_name: ubbike_redis
+    restart: unless-stopped
+    user: "999:1000"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    read_only: true
+    tmpfs:
+      - /data:uid=999,gid=1000,mode=700
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ubbike_network
+
   backend:
     build:
       context: ./backend
@@ -32,6 +53,9 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}
       DB_SYNCHRONIZE: "false"
       SEED_DEMO_DATA: "false"
+      REDIS_URL: redis://redis:6379
+      REQUIRE_REDIS_RATE_LIMIT: "true"
+      TRUST_PROXY: loopback
     ports:
       - "127.0.0.1:3000:3000"
     read_only: true
@@ -43,6 +67,8 @@ services:
       - no-new-privileges:true
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test:
@@ -63,6 +89,7 @@ services:
       context: ./mobile
       args:
         API_BASE_URL: ${PUBLIC_API_BASE_URL:?Define PUBLIC_API_BASE_URL en .env}
+        CSP_CONNECT_SRC: "'self' ${PUBLIC_API_BASE_URL:?Define PUBLIC_API_BASE_URL en .env}"
     container_name: ubbike_mobile
     restart: unless-stopped
     ports:

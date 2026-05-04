@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/servicios/excepcion_api.dart';
@@ -17,14 +19,29 @@ class PantallaNotificaciones extends StatefulWidget {
 class _PantallaNotificacionesState extends State<PantallaNotificaciones> {
   final notificacionApi = NotificacionApi();
   late Future<List<NotificacionApp>> futuroNotificaciones;
+  Timer? temporizadorNotificaciones;
 
   @override
   void initState() {
     super.initState();
     futuroNotificaciones = notificacionApi.listar();
+    temporizadorNotificaciones = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _recargar(),
+    );
+  }
+
+  @override
+  void dispose() {
+    temporizadorNotificaciones?.cancel();
+    super.dispose();
   }
 
   Future<void> _recargar() async {
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       futuroNotificaciones = notificacionApi.listar();
     });

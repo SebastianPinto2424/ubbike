@@ -21,6 +21,29 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  redis:
+    image: redis:7-alpine
+    container_name: ubbike_redis
+    restart: unless-stopped
+    user: "999:1000"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    read_only: true
+    ports:
+      - "127.0.0.1:6379:6379"
+    tmpfs:
+      - /data:uid=999,gid=1000,mode=700
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ubbike_network
+
   backend:
     build:
       context: ./backend
@@ -33,7 +56,10 @@ services:
       DB_HOST: db
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}
       DB_SYNCHRONIZE: "false"
-      SEED_DEMO_DATA: "false"
+      SEED_DEMO_DATA: "true"
+      REDIS_URL: redis://redis:6379
+      REQUIRE_REDIS_RATE_LIMIT: "true"
+      TRUST_PROXY: "false"
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       FRONTEND_URL: http://localhost:8081
@@ -49,6 +75,8 @@ services:
       - no-new-privileges:true
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       mailpit:
         condition: service_started
@@ -71,6 +99,7 @@ services:
       context: ./mobile
       args:
         API_BASE_URL: http://localhost:3000
+        CSP_CONNECT_SRC: "'self' http://localhost:3000 http://127.0.0.1:3000"
     container_name: ubbike_mobile
     restart: unless-stopped
     ports:

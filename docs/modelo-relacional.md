@@ -49,6 +49,7 @@ erDiagram
     boolean cuenta_activa
     integer version_sesion
     varchar token_verificacion_correo
+    timestamptz token_verificacion_correo_expira_en
     varchar token_cambio_contrasena
     timestamptz token_cambio_contrasena_expira_en
   }

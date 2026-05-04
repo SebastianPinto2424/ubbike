@@ -33,6 +33,7 @@ type DatosLogin = {
 const crearTokenSeguro = (): string => crypto.randomBytes(32).toString('hex');
 const hashearToken = (token: string): string =>
   crypto.createHash('sha256').update(token).digest('hex');
+const horasExpiracionVerificacionCorreo = 24;
 
 const crearToken = (usuarioId: string, rol: RolUsuario, versionSesion: number): string => {
   const opcionesFirma: SignOptions = {
@@ -88,7 +89,10 @@ export const registrarUsuario = async (datos: DatosRegistro) => {
     contrasenaHash,
     cuentaActiva: true,
     correoVerificado: false,
-    tokenVerificacionCorreo: hashearToken(tokenVerificacion)
+    tokenVerificacionCorreo: hashearToken(tokenVerificacion),
+    tokenVerificacionCorreoExpiraEn: new Date(
+      Date.now() + 1000 * 60 * 60 * horasExpiracionVerificacionCorreo
+    )
   });
 
   const usuarioGuardado = await repositorioUsuarios.save(usuario);
@@ -214,8 +218,19 @@ export const verificarCorreo = async (token: string) => {
     throw new ErrorHttp(400, 'Token de verificacion invalido');
   }
 
+  if (
+    !usuario.tokenVerificacionCorreoExpiraEn ||
+    usuario.tokenVerificacionCorreoExpiraEn.getTime() < Date.now()
+  ) {
+    usuario.tokenVerificacionCorreo = null;
+    usuario.tokenVerificacionCorreoExpiraEn = null;
+    await repositorioUsuarios.save(usuario);
+    throw new ErrorHttp(400, 'Token de verificacion expirado. Solicita un nuevo registro.');
+  }
+
   usuario.correoVerificado = true;
   usuario.tokenVerificacionCorreo = null;
+  usuario.tokenVerificacionCorreoExpiraEn = null;
   const usuarioGuardado = await repositorioUsuarios.save(usuario);
 
   await crearNotificacion({

@@ -9,6 +9,7 @@ Esta guia deja el repositorio listo para un despliegue serio. Aun asi, para publ
 - HTTPS con un proxy reverso como Nginx, Caddy, Traefik o Cloudflare Tunnel.
 - SMTP real para correos de verificacion y cambio de contrasena.
 - Un plan de backup para PostgreSQL.
+- Redis interno para rate limiting distribuido.
 
 ## Variables necesarias
 
@@ -28,7 +29,11 @@ Valores minimos:
   - `JWT_SECRET`: secreto unico de 32 o mas caracteres.
   - `FRONTEND_URL`: URL publica HTTPS del frontend.
   - `CORS_ORIGINS`: origen exacto del frontend.
-  - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`: credenciales reales de correo.
+  - `TRUST_PROXY`: `loopback` si el proxy reverso publica desde la misma maquina.
+  - `REDIS_URL`: URL interna de Redis; en Docker Compose queda `redis://redis:6379`.
+  - `REQUIRE_REDIS_RATE_LIMIT=true`.
+  - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`: credenciales reales de correo. Se recomienda Brevo SMTP:
+    `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_SECURE=false`.
   - `DB_SYNCHRONIZE=false`.
   - `SEED_DEMO_DATA=false`.
 
@@ -78,6 +83,7 @@ Programa backups diarios fuera del contenedor y guarda copias fuera del servidor
 - SMTP real probado con registro y cambio de contrasena.
 - HTTPS activo en frontend y API.
 - PostgreSQL no esta expuesto publicamente.
+- Redis no esta expuesto publicamente y `REQUIRE_REDIS_RATE_LIMIT=true`.
 - Backups probados con restauracion.
 - Logs revisados con `docker compose -f docker-compose.prod.yml logs backend`.
 - Usuarios demo eliminados o deshabilitados si existian en una base antigua.

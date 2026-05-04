@@ -19,7 +19,10 @@ export const generar = async (req: SolicitudAutenticada, res: Response, next: Ne
 
 export const validar = async (req: SolicitudAutenticada, res: Response, next: NextFunction) => {
   try {
-    const qr = await validarQrTemporal(req.body.token);
+    const qr = await validarQrTemporal(req.body.token, {
+      validadorUsuarioId: req.usuario!.usuarioId,
+      rol: req.usuario!.rol
+    });
     return res.status(200).json({ qr });
   } catch (error) {
     return next(error);

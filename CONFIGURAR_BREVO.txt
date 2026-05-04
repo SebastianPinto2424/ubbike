@@ -1,0 +1,60 @@
+CONFIGURAR BREVO SMTP - UBBike
+==============================
+
+Proveedor recomendado
+---------------------
+Brevo SMTP.
+
+Uso en el proyecto
+------------------
+UBBike ya usa Nodemailer en el backend, por lo que no hace falta cambiar codigo.
+Solo se deben configurar variables SMTP en backend/.env.
+
+
+Pasos en Brevo
+--------------
+1. Crear una cuenta en Brevo.
+2. Ir a Transactional > SMTP.
+3. Activar SMTP transaccional.
+4. Crear o copiar las credenciales SMTP.
+5. Agregar y autenticar el dominio del remitente con los DNS que indique Brevo.
+6. Crear o verificar el sender/remitente.
+
+
+Variables para backend/.env
+---------------------------
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=TU_LOGIN_SMTP_DE_BREVO
+SMTP_PASSWORD=TU_SMTP_KEY_DE_BREVO
+MAIL_FROM=UBBike <no-reply@tu-dominio.cl>
+
+
+Importante
+----------
+- SMTP_PASSWORD debe ser la clave SMTP de Brevo, no una API key.
+- MAIL_FROM debe usar un remitente autorizado/verificado en Brevo.
+- Si usas dominio propio, autentica SPF/DKIM para mejorar entregabilidad.
+- No subas backend/.env a Git.
+
+
+Aplicar cambios en Docker local
+-------------------------------
+docker compose up -d --build
+
+
+Aplicar cambios en produccion
+-----------------------------
+docker compose -f docker-compose.prod.yml build --no-cache
+docker compose -f docker-compose.prod.yml up -d
+
+
+Probar correos
+--------------
+1. Registrar un usuario nuevo.
+2. Revisar que llegue correo de verificacion.
+3. Probar "olvide mi contrasena".
+4. Revisar logs si falla:
+
+docker compose logs -f backend

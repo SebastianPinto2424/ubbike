@@ -1,93 +1,147 @@
 # UBBike
 
-Aplicacion movil y backend para gestionar el ingreso y retiro de bicicletas en los bicicleteros de la Universidad del Bio-Bio.
+Aplicacion web/mobile y API REST para gestionar el registro de bicicletas, el ingreso y retiro desde bicicleteros, y la trazabilidad operativa de los accesos en la Universidad del Bio-Bio.
 
-## Estructura
+## Estructura del proyecto
 
-- `backend/`: API REST con Node.js, Express, TypeORM y PostgreSQL.
+- `backend/`: API REST con Node.js, Express, TypeORM, PostgreSQL y Redis.
 - `mobile/`: aplicacion Flutter Web/Mobile con vistas por rol.
-- `docs/`: documentacion del proyecto y decisiones tecnicas.
+- `docs/`: documentacion tecnica, modelo relacional y notas de produccion.
 
-## Despliegue con Docker (Paso a paso)
+## Requisitos
 
-Para levantar el proyecto completo (Base de datos, Backend, Frontend y Correos) sin necesidad de instalar herramientas externas, sigue estos pasos:
+- Docker Desktop.
+- Git.
+- Navegador web para probar la aplicacion local.
+- Flutter y Node.js solo si se desea ejecutar sin Docker.
 
-1. Instala y asegúrate de tener abierto **Docker Desktop**.
-2. Abre una terminal en la carpeta principal `ubbike`.
-3. Ejecuta el siguiente comando para construir y levantar todo en segundo plano:
+## Configuracion inicial
+
+Antes de levantar Docker por primera vez, crea los archivos de entorno locales:
+
+```bash
+cp .env.example .env
+cp backend/.env.example backend/.env
+```
+
+En Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+Copy-Item backend/.env.example backend/.env
+```
+
+Luego reemplaza, como minimo:
+
+- `.env`: `POSTGRES_PASSWORD` por una clave segura.
+- `backend/.env`: `JWT_SECRET` por un secreto largo de 32 o mas caracteres.
+
+Los archivos `.env` y `backend/.env` estan ignorados por Git y no deben subirse al repositorio.
+
+## Despliegue local con Docker
+
+Desde la carpeta principal del proyecto:
 
 ```bash
 docker compose up -d --build
 ```
 
-### Comandos útiles de Git y Docker
+Servicios disponibles:
 
-- **Aplicar nuevos cambios en el código:**
-  ```bash
-  docker compose up -d --build
-  ```
-- **Reconstrucción limpia (SIN CACHÉ):** Si cambiaste dependencias pesadas y no se reflejan, fuerza la reconstrucción:
-  ```bash
-  docker compose build --no-cache
-  docker compose up -d
-  ```
-- **Detener el proyecto (conserva datos):**
-  ```bash
-  docker compose down
-  ```
-- **Reset total (Borra datos):** Elimina contenedores y reinicia la base de datos a cero.
-  ```bash
-  docker compose down -v
-  ```
+- Aplicacion web: [http://localhost:8081](http://localhost:8081)
+- Backend API: [http://localhost:3000](http://localhost:3000)
+- Salud backend: [http://localhost:3000/health](http://localhost:3000/health)
+- Correos de prueba Mailpit: [http://localhost:8025](http://localhost:8025)
+- PostgreSQL local: `127.0.0.1:5432`
+- Redis local: `127.0.0.1:6379`
 
-### Modo seguro local
+Docker levanta:
 
-El proyecto queda configurado con una postura segura incluso en local:
+- `db`: base de datos PostgreSQL.
+- `redis`: almacenamiento de rate limiting.
+- `backend`: API REST UBBike.
+- `mobile`: build Flutter Web servido por Nginx.
+- `mailpit`: SMTP local para pruebas de correo.
 
-- El backend corre con `NODE_ENV=production`.
-- `DB_SYNCHRONIZE=false` evita cambios automaticos destructivos de esquema.
-- El backend ejecuta migraciones versionadas al arrancar.
-- `SEED_DEMO_DATA=false` evita recrear cuentas demo automaticamente.
-- Docker publica puertos solo en `127.0.0.1`.
-- El frontend Nginx corre sin privilegios y con headers de seguridad.
-- El backend corre como usuario no root y con filesystem de solo lectura.
-- `JWT_SECRET` y `POSTGRES_PASSWORD` deben venir desde archivos `.env` locales.
+## Comandos utiles
 
-Si borras el volumen de base de datos con `docker compose down -v`, el backend
-vuelve a crear el esquema mediante migraciones. No uses `DB_SYNCHRONIZE=true`
-para publicar.
+Levantar o aplicar cambios:
 
-### Produccion y publicacion
+```bash
+docker compose up -d --build
+```
 
-Para publicar en un servidor usa el compose endurecido:
+Reconstruccion limpia sin cache:
+
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
+Detener conservando datos:
+
+```bash
+docker compose down
+```
+
+Reiniciar desde cero eliminando volumenes:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+Ver estado:
+
+```bash
+docker compose ps
+```
+
+Ver logs:
+
+```bash
+docker compose logs -f backend
+docker compose logs -f mobile
+```
+
+## Seguridad local y produccion
+
+El proyecto queda preparado con una configuracion segura base:
+
+- Backend en `NODE_ENV=production`.
+- Migraciones versionadas al iniciar.
+- `DB_SYNCHRONIZE=false`.
+- Backend ejecutado como usuario no root.
+- Contenedores con `read_only`, `tmpfs`, `cap_drop` y `no-new-privileges`.
+- Puertos publicados solo en `127.0.0.1` en entorno local.
+- Redis para rate limiting distribuido.
+- Nginx con headers de seguridad y CSP para Flutter Web.
+- Validacion estricta de correo institucional y contrasenas.
+- Tokens de verificacion de correo con expiracion.
+- QR temporal de corta duracion.
+- Validacion de QR restringida al bicicletero activo del guardia.
+
+Para publicar en servidor se usa:
 
 ```bash
 docker compose -f docker-compose.prod.yml build --no-cache
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-Antes de publicar, reemplaza los valores de `.env.example` y
-`backend/.env.example`, configura SMTP real, HTTPS y backups. La guia completa
-esta en `docs/produccion.md`.
+Antes de produccion se deben configurar:
 
-### Enlaces de acceso local
+- Dominio publico y HTTPS.
+- `PUBLIC_API_BASE_URL` con la URL publica del backend.
+- `CORS_ORIGINS` y `FRONTEND_URL` correctos.
+- SMTP real, recomendado Brevo.
+- Backups de base de datos.
+- Secretos seguros en `.env` y `backend/.env`.
 
-Una vez ejecutado el despliegue, podrás acceder a los siguientes servicios desde tu navegador:
+Ver detalle en `docs/produccion.md` y `CONFIGURAR_BREVO.txt`.
 
-- **Aplicación Web (Frontend):** [http://localhost:8081](http://localhost:8081)
-- **Correos de prueba (Mailpit):** [http://localhost:8025](http://localhost:8025)
-- **Backend (API Base):** [http://localhost:3000](http://localhost:3000)
-- **Base de datos (PorsgreSQL):** `localhost:5432`
+## Credenciales demo
 
-Docker levanta automáticamente:
-- `db`: PostgreSQL con volumen `postgres_data`.
-- `backend`: API REST UBBike.
-- `mobile`: Build Flutter Web servido por Nginx.
-- `mailpit`: Servidor SMTP local para recibir correos de registro y cambio de contraseñas.
-
-## Credenciales de prueba
-
-Todas usan la contrasena:
+En local, `SEED_DEMO_DATA=true` crea usuarios de prueba. Todas las cuentas usan:
 
 ```text
 UBBike2026*
@@ -101,17 +155,103 @@ UBBike2026*
 | Admin central | `admin.central@ubiobio.cl` |
 | Administrador | `administrador@ubiobio.cl` |
 
-El rol se determina desde el backend al iniciar sesion.
+En produccion, `SEED_DEMO_DATA=false`.
 
-## Arranque local sin Docker
+## Flujo funcional del MVP
 
-Primero levanta PostgreSQL y Mailpit, o usa Docker solo para servicios:
+1. El usuario solicita registro con correo institucional.
+2. El sistema asigna rol automaticamente segun dominio de correo:
+   - `@alumnos.ubiobio.cl`: estudiante.
+   - `@ubiobio.cl`: funcionario.
+3. El usuario verifica su correo mediante enlace seguro.
+4. El usuario inicia sesion y registra una o mas bicicletas.
+5. El usuario selecciona una bicicleta activa.
+6. Para ingreso, selecciona bicicletero y genera QR temporal.
+7. Para retiro, genera QR asociado al bicicletero donde la bicicleta se encuentra registrada.
+8. El guardia selecciona en su perfil el bicicletero que gestiona durante su turno.
+9. El guardia valida QR solo si corresponde a su bicicletero activo.
+10. El guardia confirma o deniega ingreso/retiro.
+11. Si el QR no puede usarse, el guardia registra acceso manual con correo institucional o RUT.
+12. Usuarios pueden solicitar apoyo si no ven al guardia o requieren servicio.
+13. Guardia y central reciben alertas y notificaciones dentro de la aplicacion.
+14. Central y administrador revisan historial, dashboard, solicitudes y operaciones por guardia.
+15. Administrador puede gestionar usuarios, roles, estado de cuenta y verificacion de correo.
 
-```bash
-docker compose up db mailpit
+## Endpoints principales
+
+Autenticacion:
+
+```text
+POST /autenticacion/registro
+POST /autenticacion/login
+GET  /autenticacion/perfil
+GET  /autenticacion/verificar-correo
+POST /autenticacion/verificar-correo
+POST /autenticacion/solicitar-cambio-contrasena
+POST /autenticacion/cambiar-contrasena
 ```
 
-Luego backend:
+Bicicletas y bicicleteros:
+
+```text
+GET    /bicicleteros
+GET    /bicicletas
+GET    /bicicletas/activa
+POST   /bicicletas
+PATCH  /bicicletas/:id
+DELETE /bicicletas/:id
+PATCH  /bicicletas/:id/activar
+```
+
+QR y accesos:
+
+```text
+POST /qr/generar
+POST /qr/validar
+POST /accesos/qr/confirmar
+POST /accesos/qr/denegar
+POST /accesos/manual
+```
+
+Guardias y solicitudes:
+
+```text
+GET   /guardias/me/bicicletero
+PATCH /guardias/me/bicicletero
+GET   /solicitudes-guardia
+POST  /solicitudes-guardia
+PATCH /solicitudes-guardia/:id/estado
+```
+
+Historial, usuarios y notificaciones:
+
+```text
+GET   /historial
+GET   /historial/resumen
+GET   /notificaciones
+PATCH /notificaciones/leidas
+GET   /usuarios
+PATCH /usuarios/:id
+```
+
+Alias mantenidos por compatibilidad:
+
+```text
+GET  /health
+POST /auth/register
+POST /auth/login
+GET  /auth/me
+```
+
+## Arranque sin Docker
+
+Primero levanta servicios base:
+
+```bash
+docker compose up -d db redis mailpit
+```
+
+Backend:
 
 ```bash
 cd backend
@@ -119,77 +259,7 @@ npm install
 npm run dev
 ```
 
-Endpoint inicial:
-
-```text
-GET http://localhost:3000/salud
-```
-
-Endpoints de autenticacion:
-
-```text
-POST http://localhost:3000/autenticacion/registro
-POST http://localhost:3000/autenticacion/login
-GET  http://localhost:3000/autenticacion/perfil
-GET  http://localhost:3000/notificaciones
-GET  http://localhost:3000/bicicleteros
-GET  http://localhost:3000/solicitudes-guardia
-POST http://localhost:3000/solicitudes-guardia
-PATCH http://localhost:3000/solicitudes-guardia/:id/estado
-GET  http://localhost:3000/bicicletas
-POST http://localhost:3000/bicicletas
-PATCH http://localhost:3000/bicicletas/:id
-DELETE http://localhost:3000/bicicletas/:id
-PATCH http://localhost:3000/bicicletas/:id/activar
-POST http://localhost:3000/qr/generar
-POST http://localhost:3000/qr/validar
-POST http://localhost:3000/accesos/qr/confirmar
-POST http://localhost:3000/accesos/qr/denegar
-POST http://localhost:3000/accesos/manual
-GET  http://localhost:3000/historial
-GET  http://localhost:3000/historial/resumen
-GET  http://localhost:3000/usuarios
-PATCH http://localhost:3000/usuarios/:id
-```
-
-Tambien se mantienen alias temporales en ingles para no romper pruebas previas: `/health`, `/auth/register`, `/auth/login` y `/auth/me`.
-
-## Flujo MVP validado
-
-1. El usuario se registra utilizando estrictamente su correo institucional. El sistema asigna automáticamente el rol (`ESTUDIANTE` para `@alumnos.ubiobio.cl` o `FUNCIONARIO` para `@ubiobio.cl`).
-2. El formulario valida matemáticamente RUTs chilenos y medidas de seguridad mínimas antes de enviar la petición.
-3. El usuario inicia sesion y registra una o mas bicicletas.
-2. Si tiene varias bicicletas, marca una como activa.
-3. Genera un QR temporal de ingreso o retiro. Dura 15 segundos.
-4. El guardia valida el QR y confirma o deniega la operacion.
-5. Si el QR no puede usarse, el guardia registra ingreso o retiro manual con correo institucional o RUT.
-6. Central y administrador revisan historial, dashboard y operaciones por guardia.
-7. El administrador puede gestionar roles, permisos, estado de cuenta y verificacion de correo.
-
-## Modelo relacional base
-
-El MR completo esta documentado en `docs/modelo-relacional.md`. El modelo real
-que crea las tablas vive en las entidades TypeORM de `backend/src/modulos`.
-
-El backend ya considera:
-
-- Usuarios con roles `ESTUDIANTE`, `FUNCIONARIO`, `GUARDIA`, `ADMIN_CENTRAL` y `ADMINISTRADOR`.
-- El rol se determina al iniciar sesion segun la cuenta registrada.
-- `ADMIN_CENTRAL` corresponde al equipo operativo de central.
-- `ADMINISTRADOR` puede ver usuarios, cambiar roles, activar cuentas, denegar accesos y marcar correos como verificados.
-- Registro y cambio de contrasena consideran validacion por correo.
-- Bicicleteros como entidad propia. La UBB tiene actualmente dos bicicleteros.
-- Bicicletas registradas por usuario con opcion de agregar, editar, eliminar y activar una bicicleta en uso.
-- QR temporal de 15 segundos asociado a la bicicleta activa; si vence, debe regenerarse.
-- Asignaciones de guardias a bicicleteros.
-- Solicitudes de guardia hacia central cuando el usuario no ve al guardia o requiere su servicio.
-- Movimientos asociados a bicicleta, usuario, bicicletero y guardia validador.
-- Notificaciones por usuario y perfil.
-- Envio de correos por SMTP local usando Mailpit.
-
-Los archivos, clases y funciones del backend estan nombrados en espanol siempre que no choque con convenciones propias de Node, Express o TypeORM.
-
-## App mobile
+Flutter:
 
 ```bash
 cd mobile
@@ -197,8 +267,52 @@ flutter pub get
 flutter run --dart-define=API_BASE_URL=http://localhost:3000
 ```
 
-Para generar web local:
+Build web local:
 
 ```bash
-flutter build web --dart-define=API_BASE_URL=http://localhost:3000
+cd mobile
+flutter build web --release --no-web-resources-cdn --dart-define=API_BASE_URL=http://localhost:3000
 ```
+
+## Validaciones recomendadas
+
+Backend:
+
+```bash
+cd backend
+npm run typecheck
+npm run build
+```
+
+Frontend:
+
+```bash
+cd mobile
+flutter analyze
+flutter test
+```
+
+Docker Compose:
+
+```bash
+docker compose config --quiet
+docker compose -f docker-compose.prod.yml config --quiet
+```
+
+## Modelo relacional
+
+El modelo relacional se documenta en `docs/modelo-relacional.md`.
+
+El backend considera:
+
+- Usuarios con roles `ESTUDIANTE`, `FUNCIONARIO`, `GUARDIA`, `ADMIN_CENTRAL` y `ADMINISTRADOR`.
+- Bicicleteros activos con capacidad y ocupacion.
+- Bicicletas asociadas a usuarios.
+- QR temporales asociados a usuario, bicicleta, tipo de movimiento y bicicletero.
+- Asignaciones activas de guardia a bicicletero.
+- Movimientos de ingreso/retiro con estado confirmado o denegado.
+- Solicitudes de guardia.
+- Notificaciones por usuario.
+- Auditoria de acciones relevantes.
+
+Los nombres de clases, modulos y funciones del backend se mantienen en espanol cuando no chocan con convenciones propias de Node, Express o TypeORM.

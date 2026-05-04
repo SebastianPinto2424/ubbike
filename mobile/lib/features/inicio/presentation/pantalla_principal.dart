@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,6 +15,7 @@ import '../../../features/auth/presentation/pantalla_login.dart';
 import '../../../features/bicicletas/data/bicicleta_api.dart';
 import '../../../features/acceso/data/acceso_api.dart';
 import '../../../features/historial/data/historial_api.dart';
+import '../../../features/notificaciones/data/notificacion_api.dart';
 import '../../../features/notificaciones/presentation/pantalla_notificaciones.dart';
 import '../../../features/qr/data/qr_api.dart';
 import '../../../shared/modelos/bicicleta_app.dart';
@@ -25,6 +28,51 @@ import '../../../shared/widgets/contenedor_responsivo.dart';
 import '../../../shared/widgets/marca_ubbike.dart';
 import '../../../shared/widgets/tarjeta_accion.dart';
 
+const int _maxFotoDataUrlLength = 1400000;
+const Set<String> _mimesFotoPermitidos = {
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+};
+
+String _normalizarMimeFoto(String? mime, String nombreArchivo) {
+  final normalizado = mime?.toLowerCase().trim();
+  if (_mimesFotoPermitidos.contains(normalizado)) {
+    return normalizado!;
+  }
+
+  final nombre = nombreArchivo.toLowerCase();
+  if (nombre.endsWith('.jpg') || nombre.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (nombre.endsWith('.png')) {
+    return 'image/png';
+  }
+  if (nombre.endsWith('.webp')) {
+    return 'image/webp';
+  }
+
+  return normalizado ?? 'image/jpeg';
+}
+
+Uint8List? _decodificarFotoDataUrl(String? fotoDataUrl) {
+  if (fotoDataUrl == null || !fotoDataUrl.startsWith('data:image')) {
+    return null;
+  }
+
+  final partes = fotoDataUrl.split(',');
+  if (partes.length < 2) {
+    return null;
+  }
+
+  try {
+    return base64Decode(partes.last);
+  } on FormatException {
+    return null;
+  }
+}
+
 class PantallaPrincipal extends StatefulWidget {
   const PantallaPrincipal({super.key, required this.rol});
 
@@ -36,6 +84,115 @@ class PantallaPrincipal extends StatefulWidget {
 
 class _PantallaPrincipalState extends State<PantallaPrincipal> {
   int indice = 0;
+  final notificacionApi = NotificacionApi();
+  Timer? temporizadorNotificaciones;
+  Set<String> notificacionesConocidas = {};
+  int notificacionesNoLeidas = 0;
+  bool notificacionesInicializadas = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _actualizarNotificaciones();
+    temporizadorNotificaciones = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _actualizarNotificaciones(avisarNuevas: true),
+    );
+  }
+
+  @override
+  void dispose() {
+    temporizadorNotificaciones?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _abrirNotificaciones() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PantallaNotificaciones(),
+      ),
+    );
+
+    if (mounted) {
+      await _actualizarNotificaciones();
+    }
+  }
+
+  Future<void> _actualizarNotificaciones({bool avisarNuevas = false}) async {
+    try {
+      final notificaciones = await notificacionApi.listar();
+      if (!mounted) {
+        return;
+      }
+
+      final nuevas = notificaciones
+          .where(
+            (notificacion) =>
+                !notificacion.leida &&
+                !notificacionesConocidas.contains(notificacion.id),
+          )
+          .toList();
+      final ids = notificaciones.map((notificacion) => notificacion.id).toSet();
+      final totalNoLeidas =
+          notificaciones.where((notificacion) => !notificacion.leida).length;
+      final debeAvisar =
+          avisarNuevas && notificacionesInicializadas && nuevas.isNotEmpty;
+
+      setState(() {
+        notificacionesConocidas = ids;
+        notificacionesNoLeidas = totalNoLeidas;
+        notificacionesInicializadas = true;
+      });
+
+      if (debeAvisar && mounted) {
+        final primera = nuevas.first;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Nueva notificacion: ${primera.titulo}'),
+            action: SnackBarAction(
+              label: 'Ver',
+              onPressed: _abrirNotificaciones,
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      // La pantalla principal no debe bloquearse si falla el polling.
+    }
+  }
+
+  Widget _iconoNotificaciones() {
+    final cantidad = notificacionesNoLeidas;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Icon(Icons.notifications_outlined),
+        if (cantidad > 0)
+          Positioned(
+            right: -4,
+            top: -6,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: ColoresUbb.rojoInstitucional,
+                shape: BoxShape.circle,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Text(
+                  cantidad > 9 ? '9+' : '$cantidad',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,14 +205,8 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         actions: [
           IconButton(
             tooltip: 'Notificaciones',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const PantallaNotificaciones(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.notifications_outlined),
+            onPressed: _abrirNotificaciones,
+            icon: _iconoNotificaciones(),
           ),
           IconButton(
             tooltip: 'Cerrar sesion',
@@ -548,20 +699,52 @@ class _VistaBicicletasState extends State<VistaBicicletas> {
       ImageSource source,
       void Function(void Function()) setModalState,
     ) async {
-      final imagen = await ImagePicker().pickImage(
-        source: source,
-        imageQuality: 72,
-        maxWidth: 1200,
-      );
+      try {
+        final imagen = await ImagePicker().pickImage(
+          source: source,
+          imageQuality: 72,
+          maxWidth: 1200,
+          maxHeight: 1200,
+        );
 
-      if (imagen == null) {
-        return;
+        if (imagen == null) {
+          return;
+        }
+
+        final mime = _normalizarMimeFoto(imagen.mimeType, imagen.name);
+        if (!_mimesFotoPermitidos.contains(mime)) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('La foto debe ser JPG, PNG o WEBP.'),
+              ),
+            );
+          }
+          return;
+        }
+
+        final bytes = await imagen.readAsBytes();
+        final dataUrl = 'data:$mime;base64,${base64Encode(bytes)}';
+        if (dataUrl.length > _maxFotoDataUrlLength) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'La foto es muy pesada. Elige una imagen mas liviana.'),
+              ),
+            );
+          }
+          return;
+        }
+
+        setModalState(() => fotoSeleccionada = dataUrl);
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo cargar la foto.')),
+          );
+        }
       }
-
-      final bytes = await imagen.readAsBytes();
-      final mime = imagen.mimeType ?? 'image/jpeg';
-      final dataUrl = 'data:$mime;base64,${base64Encode(bytes)}';
-      setModalState(() => fotoSeleccionada = dataUrl);
     }
 
     final guardo = await showModalBottomSheet<bool>(
@@ -772,6 +955,7 @@ class _SelectorFotoBicicleta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foto = fotoDataUrl;
+    final bytesFoto = _decodificarFotoDataUrl(foto);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -784,11 +968,11 @@ class _SelectorFotoBicicleta extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (foto != null && foto.startsWith('data:image')) ...[
+            if (bytesFoto != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.memory(
-                  base64Decode(foto.split(',').last),
+                  bytesFoto,
                   height: 140,
                   fit: BoxFit.cover,
                 ),
@@ -1429,17 +1613,17 @@ class VistaInicioGuardia extends StatefulWidget {
 
 class _VistaInicioGuardiaState extends State<VistaInicioGuardia> {
   final solicitudGuardiaApi = SolicitudGuardiaApi();
-  late Future<List<BicicleteroApp>> futuroBicicleteros;
+  late Future<BicicleteroApp?> futuroBicicletero;
 
   @override
   void initState() {
     super.initState();
-    futuroBicicleteros = solicitudGuardiaApi.listarBicicleteros();
+    futuroBicicletero = solicitudGuardiaApi.obtenerBicicleteroGestionado();
   }
 
   void _recargar() {
-    setState(
-        () => futuroBicicleteros = solicitudGuardiaApi.listarBicicleteros());
+    setState(() =>
+        futuroBicicletero = solicitudGuardiaApi.obtenerBicicleteroGestionado());
   }
 
   @override
@@ -1452,22 +1636,22 @@ class _VistaInicioGuardiaState extends State<VistaInicioGuardia> {
           icono: Icons.verified_user_outlined,
         ),
         const SizedBox(height: 16),
-        FutureBuilder<List<BicicleteroApp>>(
-          future: futuroBicicleteros,
+        FutureBuilder<BicicleteroApp?>(
+          future: futuroBicicletero,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (snapshot.hasError || (snapshot.data ?? []).isEmpty) {
+            if (snapshot.hasError || snapshot.data == null) {
               return TarjetaAccion(
                 icono: Icons.location_off_outlined,
-                titulo: 'Sin bicicletero asignado',
-                detalle: 'Toca para actualizar informacion de cupos.',
+                titulo: 'Selecciona tu bicicletero',
+                detalle: 'Ve a Perfil para definir el bicicletero de tu turno.',
                 color: ColoresUbb.rojoInstitucional,
                 onTap: _recargar,
               );
             }
-            return _TarjetaBicicleteroApp(bicicletero: snapshot.data!.first);
+            return _TarjetaBicicleteroApp(bicicletero: snapshot.data!);
           },
         ),
         const SizedBox(height: 10),
@@ -1752,7 +1936,7 @@ class _FichaVerificacionBicicleta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foto = qr.bicicletaFotoUrl;
-    final tieneFoto = foto != null && foto.startsWith('data:image');
+    final bytesFoto = _decodificarFotoDataUrl(foto);
     final detalles = <Widget>[
       if (qr.bicicletaMarca?.isNotEmpty == true)
         ChipEstado(texto: qr.bicicletaMarca!, color: ColoresUbb.azulApp),
@@ -1813,9 +1997,9 @@ class _FichaVerificacionBicicleta extends StatelessWidget {
                 child: SizedBox(
                   width: 112,
                   height: 112,
-                  child: tieneFoto
+                  child: bytesFoto != null
                       ? Image.memory(
-                          base64Decode(foto.split(',').last),
+                          bytesFoto,
                           fit: BoxFit.cover,
                         )
                       : Container(
@@ -2025,16 +2209,68 @@ class VistaAlertasGuardia extends StatefulWidget {
 class _VistaAlertasGuardiaState extends State<VistaAlertasGuardia> {
   final solicitudGuardiaApi = SolicitudGuardiaApi();
   late Future<List<SolicitudGuardiaApp>> futuroSolicitudes;
+  Timer? temporizadorAlertas;
+  Set<String> solicitudesConocidas = {};
+  bool solicitudesInicializadas = false;
 
   @override
   void initState() {
     super.initState();
-    futuroSolicitudes = solicitudGuardiaApi.listarSolicitudes();
+    futuroSolicitudes = _cargarSolicitudes();
+    temporizadorAlertas = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _recargar(avisarNuevas: true),
+    );
   }
 
-  void _recargar() {
+  @override
+  void dispose() {
+    temporizadorAlertas?.cancel();
+    super.dispose();
+  }
+
+  bool _solicitudAbierta(SolicitudGuardiaApp solicitud) {
+    return solicitud.estado != 'RESUELTA' && solicitud.estado != 'CANCELADA';
+  }
+
+  Future<List<SolicitudGuardiaApp>> _cargarSolicitudes({
+    bool avisarNuevas = false,
+  }) async {
+    final solicitudes = await solicitudGuardiaApi.listarSolicitudes();
+    final abiertas = solicitudes.where(_solicitudAbierta).toList();
+    final idsAbiertas = abiertas.map((solicitud) => solicitud.id).toSet();
+    final nuevas = abiertas
+        .where((solicitud) => !solicitudesConocidas.contains(solicitud.id))
+        .toList();
+    final debeAvisar =
+        avisarNuevas && solicitudesInicializadas && nuevas.isNotEmpty;
+
+    solicitudesConocidas = idsAbiertas;
+    solicitudesInicializadas = true;
+
+    if (debeAvisar && mounted) {
+      final primera = nuevas.first;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            nuevas.length == 1
+                ? 'Nueva alerta en ${primera.bicicletero.nombre}'
+                : '${nuevas.length} nuevas alertas asignadas',
+          ),
+        ),
+      );
+    }
+
+    return solicitudes;
+  }
+
+  void _recargar({bool avisarNuevas = false}) {
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
-      futuroSolicitudes = solicitudGuardiaApi.listarSolicitudes();
+      futuroSolicitudes = _cargarSolicitudes(avisarNuevas: avisarNuevas);
     });
   }
 
@@ -2259,6 +2495,26 @@ class _VistaMovimientosCentralState extends State<VistaMovimientosCentral> {
     setState(() => futuroMovimientos = _obtenerMovimientos());
   }
 
+  String _resumenFiltros() {
+    final busqueda = filtroController.text.trim();
+    final partes = [
+      _etiquetaPeriodoFiltro(periodo),
+      _etiquetaTipoMovimientoFiltro(tipoMovimiento),
+      _etiquetaEstadoMovimientoFiltro(estadoMovimiento),
+      if (busqueda.isNotEmpty) 'Busqueda activa',
+    ];
+
+    return partes.join(' | ');
+  }
+
+  void _limpiarFiltros() {
+    filtroController.clear();
+    periodo = 'SEMANA';
+    tipoMovimiento = 'TODOS';
+    estadoMovimiento = 'TODOS';
+    _recargar();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -2270,53 +2526,81 @@ class _VistaMovimientosCentralState extends State<VistaMovimientosCentral> {
           icono: Icons.manage_search_outlined,
         ),
         const SizedBox(height: 16),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'DIA', label: Text('Dia')),
-            ButtonSegment(value: 'SEMANA', label: Text('Semana')),
-            ButtonSegment(value: 'MES', label: Text('Mes')),
-            ButtonSegment(value: 'ANIO', label: Text('Ano')),
+        _PanelFiltros(
+          titulo: 'Filtros de historial',
+          detalle: _resumenFiltros(),
+          onLimpiar: _limpiarFiltros,
+          children: [
+            _EtiquetaFiltro(
+              texto: 'Periodo',
+              child: _SegmentadoEnLinea<String>(
+                segments: const [
+                  ButtonSegment(value: 'DIA', label: Text('Dia')),
+                  ButtonSegment(value: 'SEMANA', label: Text('Semana')),
+                  ButtonSegment(value: 'MES', label: Text('Mes')),
+                  ButtonSegment(value: 'ANIO', label: Text('Ano')),
+                ],
+                selected: {periodo},
+                onSelectionChanged: (valor) {
+                  periodo = valor.first;
+                  _recargar();
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            _EtiquetaFiltro(
+              texto: 'Tipo de movimiento',
+              child: _SegmentadoEnLinea<String>(
+                segments: const [
+                  ButtonSegment(value: 'TODOS', label: Text('Todos')),
+                  ButtonSegment(value: 'INGRESO', label: Text('Ingresos')),
+                  ButtonSegment(value: 'SALIDA', label: Text('Retiros')),
+                ],
+                selected: {tipoMovimiento},
+                onSelectionChanged: (valor) {
+                  tipoMovimiento = valor.first;
+                  _recargar();
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            _EtiquetaFiltro(
+              texto: 'Resultado',
+              child: _SegmentadoEnLinea<String>(
+                segments: const [
+                  ButtonSegment(value: 'TODOS', label: Text('Todos')),
+                  ButtonSegment(
+                      value: 'CONFIRMADO', label: Text('Confirmados')),
+                  ButtonSegment(value: 'DENEGADO', label: Text('Denegados')),
+                ],
+                selected: {estadoMovimiento},
+                onSelectionChanged: (valor) {
+                  estadoMovimiento = valor.first;
+                  _recargar();
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: filtroController,
+              decoration: InputDecoration(
+                labelText:
+                    'Buscar por RUT, correo, bicicleta, guardia o bicicletero',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: filtroController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Limpiar busqueda',
+                        onPressed: () {
+                          filtroController.clear();
+                          _recargar();
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+              ),
+              onChanged: (_) => _recargar(),
+            ),
           ],
-          selected: {periodo},
-          onSelectionChanged: (valor) {
-            periodo = valor.first;
-            _recargar();
-          },
-        ),
-        const SizedBox(height: 12),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'TODOS', label: Text('Todos')),
-            ButtonSegment(value: 'INGRESO', label: Text('Ingresos')),
-            ButtonSegment(value: 'SALIDA', label: Text('Retiros')),
-          ],
-          selected: {tipoMovimiento},
-          onSelectionChanged: (valor) {
-            tipoMovimiento = valor.first;
-            _recargar();
-          },
-        ),
-        const SizedBox(height: 12),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'TODOS', label: Text('Todo')),
-            ButtonSegment(value: 'CONFIRMADO', label: Text('Exitosos')),
-            ButtonSegment(value: 'DENEGADO', label: Text('Denegados')),
-          ],
-          selected: {estadoMovimiento},
-          onSelectionChanged: (valor) {
-            estadoMovimiento = valor.first;
-            _recargar();
-          },
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: filtroController,
-          decoration: const InputDecoration(
-            labelText: 'Buscar RUT, correo, bicicleta, guardia o bicicletero',
-            prefixIcon: Icon(Icons.search),
-          ),
-          onChanged: (_) => _recargar(),
         ),
         const SizedBox(height: 16),
         FutureBuilder<List<MovimientoApp>>(
@@ -2446,6 +2730,134 @@ class _TarjetaMovimientoCentral extends StatelessWidget {
   }
 }
 
+class _PanelFiltros extends StatelessWidget {
+  const _PanelFiltros({
+    required this.titulo,
+    required this.detalle,
+    required this.children,
+    this.onLimpiar,
+  });
+
+  final String titulo;
+  final String detalle;
+  final List<Widget> children;
+  final VoidCallback? onLimpiar;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ExpansionTile(
+        leading: const Icon(Icons.tune, color: ColoresUbb.azulApp),
+        title: Text(
+          titulo,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        subtitle: Text(
+          detalle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          const SizedBox(height: 6),
+          ...children,
+          if (onLimpiar != null) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onLimpiar,
+                icon: const Icon(Icons.filter_alt_off_outlined),
+                label: const Text('Restablecer filtros'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _EtiquetaFiltro extends StatelessWidget {
+  const _EtiquetaFiltro({required this.texto, required this.child});
+
+  final String texto;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          texto,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: ColoresUbb.textoSecundario,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 6),
+        child,
+      ],
+    );
+  }
+}
+
+class _SegmentadoEnLinea<T extends Object> extends StatelessWidget {
+  const _SegmentadoEnLinea({
+    required this.segments,
+    required this.selected,
+    required this.onSelectionChanged,
+  });
+
+  final List<ButtonSegment<T>> segments;
+  final Set<T> selected;
+  final ValueChanged<Set<T>> onSelectionChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SegmentedButton<T>(
+        showSelectedIcon: false,
+        segments: segments,
+        selected: selected,
+        onSelectionChanged: onSelectionChanged,
+      ),
+    );
+  }
+}
+
+String _etiquetaPeriodoFiltro(String periodo) {
+  return switch (periodo) {
+    'DIA' => 'Dia',
+    'SEMANA' => 'Semana',
+    'MES' => 'Mes',
+    'ANIO' => 'Ano',
+    _ => periodo,
+  };
+}
+
+String _etiquetaTipoMovimientoFiltro(String tipo) {
+  return switch (tipo) {
+    'TODOS' => 'Todos los movimientos',
+    'INGRESO' => 'Ingresos',
+    'SALIDA' => 'Retiros',
+    _ => tipo,
+  };
+}
+
+String _etiquetaEstadoMovimientoFiltro(String estado) {
+  return switch (estado) {
+    'TODOS' => 'Todos los resultados',
+    'CONFIRMADO' => 'Confirmados',
+    'DENEGADO' => 'Denegados',
+    _ => estado,
+  };
+}
+
 String _formatearFecha(DateTime fecha) {
   final local = fecha.toLocal();
   final dia = local.day.toString().padLeft(2, '0');
@@ -2526,6 +2938,21 @@ class _VistaOperacionesGuardiasCentralState
     setState(() => futuroMovimientos = _obtenerMovimientos());
   }
 
+  String _resumenFiltros() {
+    return [
+      _etiquetaPeriodoFiltro(periodo),
+      bicicleteroSeleccionado?.nombre ?? 'Todos los bicicleteros',
+      _etiquetaEstadoMovimientoFiltro(estadoMovimiento),
+    ].join(' | ');
+  }
+
+  void _limpiarFiltros() {
+    periodo = 'DIA';
+    estadoMovimiento = 'TODOS';
+    bicicleteroSeleccionado = null;
+    _recargar();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -2536,55 +2963,70 @@ class _VistaOperacionesGuardiasCentralState
           icono: Icons.security_outlined,
         ),
         const SizedBox(height: 16),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'DIA', label: Text('Dia')),
-            ButtonSegment(value: 'SEMANA', label: Text('Semana')),
-            ButtonSegment(value: 'MES', label: Text('Mes')),
-            ButtonSegment(value: 'ANIO', label: Text('Ano')),
-          ],
-          selected: {periodo},
-          onSelectionChanged: (valor) {
-            periodo = valor.first;
-            _recargar();
-          },
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<BicicleteroApp?>(
-          initialValue: bicicleteroSeleccionado,
-          decoration: const InputDecoration(
-            labelText: 'Bicicletero',
-            prefixIcon: Icon(Icons.location_on_outlined),
-          ),
-          items: [
-            const DropdownMenuItem<BicicleteroApp?>(
-              value: null,
-              child: Text('Todos los bicicleteros'),
+        _PanelFiltros(
+          titulo: 'Filtros de operaciones',
+          detalle: _resumenFiltros(),
+          onLimpiar: _limpiarFiltros,
+          children: [
+            _EtiquetaFiltro(
+              texto: 'Periodo',
+              child: _SegmentadoEnLinea<String>(
+                segments: const [
+                  ButtonSegment(value: 'DIA', label: Text('Dia')),
+                  ButtonSegment(value: 'SEMANA', label: Text('Semana')),
+                  ButtonSegment(value: 'MES', label: Text('Mes')),
+                  ButtonSegment(value: 'ANIO', label: Text('Ano')),
+                ],
+                selected: {periodo},
+                onSelectionChanged: (valor) {
+                  periodo = valor.first;
+                  _recargar();
+                },
+              ),
             ),
-            ...bicicleteros.map(
-              (bicicletero) => DropdownMenuItem<BicicleteroApp?>(
-                value: bicicletero,
-                child: Text(bicicletero.nombre),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<BicicleteroApp?>(
+              key: ValueKey(bicicleteroSeleccionado?.id ?? 'todos'),
+              initialValue: bicicleteroSeleccionado,
+              decoration: const InputDecoration(
+                labelText: 'Bicicletero',
+                prefixIcon: Icon(Icons.location_on_outlined),
+              ),
+              items: [
+                const DropdownMenuItem<BicicleteroApp?>(
+                  value: null,
+                  child: Text('Todos los bicicleteros'),
+                ),
+                ...bicicleteros.map(
+                  (bicicletero) => DropdownMenuItem<BicicleteroApp?>(
+                    value: bicicletero,
+                    child: Text(bicicletero.nombre),
+                  ),
+                ),
+              ],
+              onChanged: (valor) {
+                bicicleteroSeleccionado = valor;
+                _recargar();
+              },
+            ),
+            const SizedBox(height: 12),
+            _EtiquetaFiltro(
+              texto: 'Resultado',
+              child: _SegmentadoEnLinea<String>(
+                segments: const [
+                  ButtonSegment(value: 'TODOS', label: Text('Todos')),
+                  ButtonSegment(
+                      value: 'CONFIRMADO', label: Text('Confirmados')),
+                  ButtonSegment(value: 'DENEGADO', label: Text('Denegados')),
+                ],
+                selected: {estadoMovimiento},
+                onSelectionChanged: (valor) {
+                  estadoMovimiento = valor.first;
+                  _recargar();
+                },
               ),
             ),
           ],
-          onChanged: (valor) {
-            bicicleteroSeleccionado = valor;
-            _recargar();
-          },
-        ),
-        const SizedBox(height: 12),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'TODOS', label: Text('Todo')),
-            ButtonSegment(value: 'CONFIRMADO', label: Text('Exitosos')),
-            ButtonSegment(value: 'DENEGADO', label: Text('Denegados')),
-          ],
-          selected: {estadoMovimiento},
-          onSelectionChanged: (valor) {
-            estadoMovimiento = valor.first;
-            _recargar();
-          },
         ),
         const SizedBox(height: 16),
         FutureBuilder<List<MovimientoApp>>(
@@ -2799,6 +3241,12 @@ class VistaPerfil extends StatelessWidget {
                 _FilaDato(etiqueta: 'Correo', valor: correoPerfil),
                 _FilaDato(etiqueta: 'RUT', valor: rutPerfil),
                 const _FilaDato(etiqueta: 'Estado', valor: 'Correo verificado'),
+                if (rol == RolUsuario.guardia) ...[
+                  const SizedBox(height: 18),
+                  const Divider(height: 1),
+                  const SizedBox(height: 18),
+                  const _SelectorBicicleteroGuardiaPerfil(),
+                ],
                 const SizedBox(height: 18),
                 OutlinedButton.icon(
                   onPressed: () async {
@@ -2832,6 +3280,169 @@ class VistaPerfil extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SelectorBicicleteroGuardiaPerfil extends StatefulWidget {
+  const _SelectorBicicleteroGuardiaPerfil();
+
+  @override
+  State<_SelectorBicicleteroGuardiaPerfil> createState() =>
+      _SelectorBicicleteroGuardiaPerfilState();
+}
+
+class _SelectorBicicleteroGuardiaPerfilState
+    extends State<_SelectorBicicleteroGuardiaPerfil> {
+  final solicitudGuardiaApi = SolicitudGuardiaApi();
+  List<BicicleteroApp> bicicleteros = [];
+  BicicleteroApp? bicicleteroSeleccionado;
+  bool cargando = true;
+  bool guardando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    setState(() => cargando = true);
+
+    try {
+      final resultados = await Future.wait([
+        solicitudGuardiaApi.listarBicicleteros(),
+        solicitudGuardiaApi.obtenerBicicleteroGestionado(),
+      ]);
+      final lista = resultados[0] as List<BicicleteroApp>;
+      final actual = resultados[1] as BicicleteroApp?;
+      final seleccionado = actual == null
+          ? (lista.isEmpty ? null : lista.first)
+          : lista.cast<BicicleteroApp?>().firstWhere(
+                (item) => item?.id == actual.id,
+                orElse: () => lista.isEmpty ? null : lista.first,
+              );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        bicicleteros = lista;
+        bicicleteroSeleccionado = seleccionado;
+        cargando = false;
+      });
+    } on ExcepcionApi catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() => cargando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.mensaje)),
+      );
+    }
+  }
+
+  Future<void> _guardar() async {
+    final seleccionado = bicicleteroSeleccionado;
+    if (seleccionado == null || guardando) {
+      return;
+    }
+
+    setState(() => guardando = true);
+
+    try {
+      final actualizado = await solicitudGuardiaApi
+          .seleccionarBicicleteroGestionado(seleccionado.id);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        bicicleteros = bicicleteros
+            .map((item) => item.id == actualizado.id ? actualizado : item)
+            .toList();
+        bicicleteroSeleccionado = bicicleteros.firstWhere(
+          (item) => item.id == actualizado.id,
+        );
+        guardando = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ahora gestionas ${actualizado.nombre}')),
+      );
+    } on ExcepcionApi catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() => guardando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.mensaje)),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (cargando) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (bicicleteros.isEmpty) {
+      return const _EstadoLista(
+        icono: Icons.location_off_outlined,
+        titulo: 'Sin bicicleteros activos',
+        detalle: 'Central debe habilitar al menos un bicicletero.',
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Bicicletero de turno',
+          style: Theme.of(context)
+              .textTheme
+              .titleMedium
+              ?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<BicicleteroApp>(
+          initialValue: bicicleteroSeleccionado,
+          decoration: const InputDecoration(
+            labelText: 'Bicicletero que gestionaras',
+            prefixIcon: Icon(Icons.location_on_outlined),
+          ),
+          items: bicicleteros
+              .map(
+                (bicicletero) => DropdownMenuItem(
+                  value: bicicletero,
+                  child: Text(
+                    '${bicicletero.nombre} (${bicicletero.cuposDisponibles} cupos)',
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: guardando
+              ? null
+              : (valor) => setState(() => bicicleteroSeleccionado = valor),
+        ),
+        const SizedBox(height: 10),
+        ElevatedButton.icon(
+          onPressed:
+              guardando || bicicleteroSeleccionado == null ? null : _guardar,
+          icon: guardando
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.save_outlined),
+          label: const Text('Guardar bicicletero de turno'),
         ),
       ],
     );
@@ -2956,10 +3567,27 @@ class _ImagenBicicleta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bytesFoto = _decodificarFotoDataUrl(fotoDataUrl);
+    if (bytesFoto == null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          height: 150,
+          width: double.infinity,
+          color: ColoresUbb.superficieAzulSuave,
+          child: const Icon(
+            Icons.pedal_bike_outlined,
+            color: ColoresUbb.azulApp,
+            size: 46,
+          ),
+        ),
+      );
+    }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: Image.memory(
-        base64Decode(fotoDataUrl.split(',').last),
+        bytesFoto,
         height: 150,
         width: double.infinity,
         fit: BoxFit.cover,

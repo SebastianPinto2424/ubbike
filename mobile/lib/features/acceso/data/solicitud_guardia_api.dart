@@ -87,6 +87,26 @@ class SolicitudGuardiaApi {
         .toList();
   }
 
+  Future<BicicleteroApp?> obtenerBicicleteroGestionado() async {
+    final respuesta = await cliente.get('/guardias/me/bicicletero');
+    final datos = respuesta['bicicletero'] as Map<String, dynamic>?;
+
+    return datos == null ? null : BicicleteroApp.desdeJson(datos);
+  }
+
+  Future<BicicleteroApp> seleccionarBicicleteroGestionado(
+    String bicicleteroId,
+  ) async {
+    final respuesta = await cliente.patch(
+      '/guardias/me/bicicletero',
+      body: {'bicicleteroId': bicicleteroId},
+    );
+
+    return BicicleteroApp.desdeJson(
+      respuesta['bicicletero'] as Map<String, dynamic>,
+    );
+  }
+
   Future<void> crearSolicitud({
     required String bicicleteroId,
     required String tipo,

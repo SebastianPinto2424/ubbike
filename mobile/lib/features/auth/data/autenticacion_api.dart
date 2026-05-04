@@ -62,8 +62,9 @@ class AutenticacionApi {
   }
 
   Future<String> verificarCorreo(String token) async {
-    final respuesta = await cliente.get(
-      '/autenticacion/verificar-correo?token=$token',
+    final respuesta = await cliente.post(
+      '/autenticacion/verificar-correo',
+      body: {'token': token},
     );
 
     return respuesta['message'] as String;

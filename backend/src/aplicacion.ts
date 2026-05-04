@@ -8,6 +8,7 @@ import { rutasHistorial } from './modulos/historial/historial.rutas';
 import { rutasNotificaciones } from './modulos/notificaciones/notificacion.rutas';
 import { rutasQr } from './modulos/qr/qr.rutas';
 import { rutasAcceso } from './modulos/acceso/acceso.rutas';
+import { rutasAsignacionGuardia } from './modulos/acceso/asignacion-guardia.rutas';
 import { rutasSolicitudesGuardia } from './modulos/acceso/solicitud-guardia.rutas';
 import { rutasUsuarios } from './modulos/usuarios/usuario.rutas';
 import { middlewareErrores } from './comun/middlewares/errores.middleware';
@@ -15,6 +16,7 @@ import { entorno } from './configuracion/entorno';
 
 const aplicacion = express();
 
+aplicacion.set('trust proxy', entorno.servidor.trustProxy);
 aplicacion.use(helmet());
 aplicacion.use(
   cors({
@@ -44,6 +46,7 @@ aplicacion.use('/historial', rutasHistorial);
 aplicacion.use('/notificaciones', rutasNotificaciones);
 aplicacion.use('/qr', rutasQr);
 aplicacion.use('/accesos', rutasAcceso);
+aplicacion.use('/guardias', rutasAsignacionGuardia);
 aplicacion.use('/solicitudes-guardia', rutasSolicitudesGuardia);
 aplicacion.use('/usuarios', rutasUsuarios);
 aplicacion.use(middlewareErrores);

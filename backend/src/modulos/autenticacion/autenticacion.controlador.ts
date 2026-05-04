@@ -42,7 +42,7 @@ export const obtenerPerfil = async (
 
 export const verificarCorreo = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const token = String(req.query.token ?? '');
+    const token = String(req.body?.token ?? req.query.token ?? '');
     const resultado = await verificarCorreoServicio(token);
     return res.status(200).json(resultado);
   } catch (error) {

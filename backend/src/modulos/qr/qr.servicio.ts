@@ -4,6 +4,8 @@ import { fuenteDatos } from '../../configuracion/base-datos';
 import { Bicicleta } from '../bicicletas/bicicleta.entidad';
 import { Bicicletero } from '../bicicleteros/bicicletero.entidad';
 import { TipoMovimiento } from '../historial/tipo-movimiento';
+import { AsignacionGuardia } from '../acceso/asignacion-guardia.entidad';
+import { RolUsuario } from '../usuarios/rol-usuario';
 import { Usuario } from '../usuarios/usuario.entidad';
 import { CodigoQrTemporal } from './codigo-qr-temporal.entidad';
 
@@ -16,9 +18,15 @@ type DatosGenerarQr = {
   tipo?: TipoMovimiento;
 };
 
+type ContextoValidacionQr = {
+  validadorUsuarioId: string;
+  rol: string;
+};
+
 const repoQr = () => fuenteDatos.getRepository(CodigoQrTemporal);
 const repoBicicletas = () => fuenteDatos.getRepository(Bicicleta);
 const repoBicicleteros = () => fuenteDatos.getRepository(Bicicletero);
+const repoAsignaciones = () => fuenteDatos.getRepository(AsignacionGuardia);
 
 const buscarBicicletaParaQr = async (usuarioId: string, bicicletaId?: string) => {
   const where = bicicletaId
@@ -128,8 +136,36 @@ export const generarQrTemporal = async (datos: DatosGenerarQr) => {
   };
 };
 
-export const validarQrTemporal = async (token: string) => {
+const validarBicicleteroGuardia = async (
+  codigo: CodigoQrTemporal,
+  contexto?: ContextoValidacionQr
+) => {
+  if (contexto?.rol !== RolUsuario.GUARDIA) {
+    return;
+  }
+
+  const bicicleteroQr = codigo.bicicletero ?? codigo.bicicleta.bicicleteroActual;
+
+  if (!bicicleteroQr) {
+    throw new ErrorHttp(400, 'El QR no tiene bicicletero asociado');
+  }
+
+  const asignacion = await repoAsignaciones().findOne({
+    where: {
+      guardia: { id: contexto.validadorUsuarioId },
+      bicicletero: { id: bicicleteroQr.id },
+      activa: true
+    }
+  });
+
+  if (!asignacion) {
+    throw new ErrorHttp(403, 'El QR corresponde a otro bicicletero o no esta asignado a tu turno');
+  }
+};
+
+export const validarQrTemporal = async (token: string, contexto?: ContextoValidacionQr) => {
   const codigo = await obtenerCodigoQrValido(token);
+  await validarBicicleteroGuardia(codigo, contexto);
 
   return {
     valido: true,

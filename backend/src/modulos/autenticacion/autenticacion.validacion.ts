@@ -51,6 +51,10 @@ export const esquemaSolicitudCambioContrasena = Joi.object({
   correo: Joi.string().trim().email().required()
 });
 
+export const esquemaVerificarCorreo = Joi.object({
+  token: Joi.string().trim().required()
+});
+
 export const esquemaCambioContrasena = Joi.object({
   token: Joi.string().trim().required(),
   contrasena: esquemaContrasena

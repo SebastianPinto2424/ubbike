@@ -71,6 +71,7 @@ export const actualizarPermisosUsuario = async (
     usuario.correoVerificado = datos.correoVerificado;
     if (datos.correoVerificado) {
       usuario.tokenVerificacionCorreo = null;
+      usuario.tokenVerificacionCorreoExpiraEn = null;
     }
   }
 

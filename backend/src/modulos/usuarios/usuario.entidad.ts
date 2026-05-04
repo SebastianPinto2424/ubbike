@@ -56,6 +56,13 @@ export class Usuario {
   tokenVerificacionCorreo!: string | null;
 
   @Column({
+    name: 'token_verificacion_correo_expira_en',
+    type: 'timestamp with time zone',
+    nullable: true
+  })
+  tokenVerificacionCorreoExpiraEn!: Date | null;
+
+  @Column({
     name: 'token_cambio_contrasena',
     type: 'varchar',
     length: 120,

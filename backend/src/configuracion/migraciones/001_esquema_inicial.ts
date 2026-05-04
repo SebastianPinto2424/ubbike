@@ -90,6 +90,7 @@ export const migracion001EsquemaInicial = {
       cuenta_activa boolean NOT NULL DEFAULT true,
       version_sesion integer NOT NULL DEFAULT 0,
       token_verificacion_correo varchar(120),
+      token_verificacion_correo_expira_en timestamp with time zone,
       token_cambio_contrasena varchar(120),
       token_cambio_contrasena_expira_en timestamp with time zone,
       creado_en timestamp with time zone NOT NULL DEFAULT now(),

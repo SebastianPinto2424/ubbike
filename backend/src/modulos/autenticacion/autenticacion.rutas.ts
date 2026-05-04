@@ -14,7 +14,8 @@ import {
   esquemaCambioContrasena,
   esquemaLogin,
   esquemaRegistro,
-  esquemaSolicitudCambioContrasena
+  esquemaSolicitudCambioContrasena,
+  esquemaVerificarCorreo
 } from './autenticacion.validacion';
 
 const rutasAutenticacion = Router();
@@ -41,6 +42,7 @@ rutasAutenticacion.post(
 );
 rutasAutenticacion.get(['/perfil', '/me'], middlewareAutenticacion, obtenerPerfil);
 rutasAutenticacion.get('/verificar-correo', verificarCorreo);
+rutasAutenticacion.post('/verificar-correo', validarCuerpo(esquemaVerificarCorreo), verificarCorreo);
 rutasAutenticacion.post(
   '/solicitar-cambio-contrasena',
   limitarIntentos({
