@@ -139,8 +139,6 @@ Antes de produccion se deben configurar:
 - Backups de base de datos.
 - Secretos seguros en `.env` y `backend/.env`.
 
-Consulte el detalle en `docs/produccion.md` y `CONFIGURAR_BREVO.txt`.
-
 ## Credenciales demo
 
 En local, `SEED_DEMO_DATA=true` crea usuarios de prueba. Todas las cuentas utilizan:
