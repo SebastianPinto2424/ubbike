@@ -10,14 +10,14 @@ Aplicacion web/mobile y API REST para gestionar el registro de bicicletas, el in
 
 ## Requisitos
 
-- Docker Desktop.
+- Instale Docker Desktop y mantengalo abierto durante la ejecucion local.
 - Git.
 - Navegador web para probar la aplicacion local.
 - Flutter y Node.js solo si se desea ejecutar sin Docker.
 
 ## Configuracion inicial
 
-Antes de levantar Docker por primera vez, crea los archivos de entorno locales:
+Antes de levantar Docker por primera vez, cree los archivos de entorno locales:
 
 ```bash
 cp .env.example .env
@@ -31,7 +31,7 @@ Copy-Item .env.example .env
 Copy-Item backend/.env.example backend/.env
 ```
 
-Luego reemplaza, como minimo:
+Luego reemplace, como minimo:
 
 - `.env`: `POSTGRES_PASSWORD` por una clave segura.
 - `backend/.env`: `JWT_SECRET` por un secreto largo de 32 o mas caracteres.
@@ -40,7 +40,7 @@ Los archivos `.env` y `backend/.env` estan ignorados por Git y no deben subirse 
 
 ## Despliegue local con Docker
 
-Desde la carpeta principal del proyecto:
+Desde la carpeta principal del proyecto, ejecute:
 
 ```bash
 docker compose up -d --build
@@ -55,17 +55,19 @@ Servicios disponibles:
 - PostgreSQL local: `127.0.0.1:5432`
 - Redis local: `127.0.0.1:6379`
 
-Docker levanta:
+Docker iniciara los siguientes contenedores:
 
-- `db`: base de datos PostgreSQL.
-- `redis`: almacenamiento de rate limiting.
-- `backend`: API REST UBBike.
-- `mobile`: build Flutter Web servido por Nginx.
-- `mailpit`: SMTP local para pruebas de correo.
+| Contenedor | Servicio | Funcion |
+| --- | --- | --- |
+| `ubbike_db` | PostgreSQL | Almacena usuarios, bicicletas, bicicleteros, movimientos, solicitudes y notificaciones. |
+| `ubbike_redis` | Redis | Mantiene contadores temporales para limitar intentos de acceso y proteger acciones sensibles. |
+| `ubbike_mailpit` | Mailpit | Recibe correos de prueba para registro, verificacion y cambio de contrasena en local. |
+| `ubbike_backend` | Backend API | Expone la API REST, aplica reglas de negocio, seguridad, validaciones y migraciones. |
+| `ubbike_mobile` | Frontend Flutter Web | Sirve la aplicacion web de UBBike mediante Nginx. |
 
 ## Comandos utiles
 
-Levantar o aplicar cambios:
+Ejecutar o aplicar cambios:
 
 ```bash
 docker compose up -d --build
@@ -91,13 +93,13 @@ docker compose down -v
 docker compose up -d --build
 ```
 
-Ver estado:
+Consultar estado:
 
 ```bash
 docker compose ps
 ```
 
-Ver logs:
+Consultar logs:
 
 ```bash
 docker compose logs -f backend
@@ -121,7 +123,7 @@ El proyecto queda preparado con una configuracion segura base:
 - QR temporal de corta duracion.
 - Validacion de QR restringida al bicicletero activo del guardia.
 
-Para publicar en servidor se usa:
+Para publicar en servidor, utilice:
 
 ```bash
 docker compose -f docker-compose.prod.yml build --no-cache
@@ -137,11 +139,11 @@ Antes de produccion se deben configurar:
 - Backups de base de datos.
 - Secretos seguros en `.env` y `backend/.env`.
 
-Ver detalle en `docs/produccion.md` y `CONFIGURAR_BREVO.txt`.
+Consulte el detalle en `docs/produccion.md` y `CONFIGURAR_BREVO.txt`.
 
 ## Credenciales demo
 
-En local, `SEED_DEMO_DATA=true` crea usuarios de prueba. Todas las cuentas usan:
+En local, `SEED_DEMO_DATA=true` crea usuarios de prueba. Todas las cuentas utilizan:
 
 ```text
 UBBike2026*
@@ -245,7 +247,7 @@ GET  /auth/me
 
 ## Arranque sin Docker
 
-Primero levanta servicios base:
+Primero levante los servicios base:
 
 ```bash
 docker compose up -d db redis mailpit
