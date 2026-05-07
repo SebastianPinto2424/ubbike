@@ -15,47 +15,58 @@ Aplicacion web/mobile y API REST para gestionar el registro de bicicletas, el in
 - Navegador web para probar la aplicacion local.
 - Flutter y Node.js solo si se desea ejecutar sin Docker.
 
-## Configuracion inicial
+## Entrega Docker Compose
 
-Antes de levantar Docker por primera vez, cree los archivos de entorno locales:
+Esta seccion contiene el procedimiento especifico para la entrega de integracion con Docker Compose. El archivo `docker-compose.yml` se encuentra en la raiz del repositorio y levanta todos los servicios necesarios del proyecto.
 
-```bash
-cp .env.example .env
-cp backend/.env.example backend/.env
-```
+### Requisitos para ejecutar la entrega
 
-En Windows PowerShell:
+- Docker Desktop o Docker Engine con Docker Compose disponible.
+- Git.
+- Navegador web para acceder a la aplicacion.
+- No es obligatorio crear archivos `.env`; el `docker-compose.yml` incluye valores por defecto para evaluacion local.
 
-```powershell
-Copy-Item .env.example .env
-Copy-Item backend/.env.example backend/.env
-```
+### Procedimiento desde cero
 
-Luego reemplace, como minimo:
-
-- `.env`: `POSTGRES_PASSWORD` por una clave segura.
-- `backend/.env`: `JWT_SECRET` por un secreto largo de 32 o mas caracteres.
-
-Los archivos `.env` y `backend/.env` estan ignorados por Git y no deben subirse al repositorio.
-
-## Despliegue local con Docker
-
-Desde la carpeta principal del proyecto, ejecute:
+Clonar directamente la rama de entrega:
 
 ```bash
-docker compose up -d --build
+git clone -b rama-tarea1-docker https://github.com/SebastianPinto2424/ubbike.git
+cd ubbike
+docker compose up
 ```
 
-Servicios disponibles:
+Si el repositorio ya fue clonado previamente, entrar a la carpeta del proyecto y cambiar a la rama de entrega:
+
+```bash
+git switch rama-tarea1-docker
+docker compose up
+```
+
+### Verificacion de ejecucion
+
+Cuando los contenedores terminen de iniciar, verificar los siguientes accesos:
 
 - Aplicacion web: [http://localhost:8081](http://localhost:8081)
 - Backend API: [http://localhost:3000](http://localhost:3000)
-- Salud backend: [http://localhost:3000/health](http://localhost:3000/health)
+- Health check backend: [http://localhost:3000/health](http://localhost:3000/health)
 - Correos de prueba Mailpit: [http://localhost:8025](http://localhost:8025)
 - PostgreSQL local: `127.0.0.1:5432`
 - Redis local: `127.0.0.1:6379`
 
-Docker iniciara los siguientes contenedores:
+Para consultar el estado de los contenedores:
+
+```bash
+docker compose ps
+```
+
+Para detener la ejecucion:
+
+```bash
+docker compose down
+```
+
+### Servicios definidos en Docker Compose
 
 | Contenedor | Servicio | Funcion |
 | --- | --- | --- |
@@ -63,7 +74,36 @@ Docker iniciara los siguientes contenedores:
 | `ubbike_redis` | Redis | Mantiene contadores temporales para limitar intentos de acceso y proteger acciones sensibles. |
 | `ubbike_mailpit` | Mailpit | Recibe correos de prueba para registro, verificacion y cambio de contrasena en local. |
 | `ubbike_backend` | Backend API | Expone la API REST, aplica reglas de negocio, seguridad, validaciones y migraciones. |
-| `ubbike_mobile` | Frontend Flutter Web | Sirve la aplicacion web de UBBike mediante Nginx. |
+| `ubbike_frontend` | Frontend Flutter Web | Sirve la aplicacion web de UBBike mediante Nginx. |
+
+## Configuracion opcional
+
+Si desea personalizar puertos, contrasenas o secretos para Docker, cree el archivo de entorno local:
+
+```bash
+cp .env.example .env
+```
+
+En Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Luego reemplace, como minimo:
+
+- `.env`: `POSTGRES_PASSWORD` por una clave segura.
+- `.env`: `JWT_SECRET` por un secreto largo de 32 o mas caracteres.
+
+El archivo `.env` esta ignorado por Git y no debe subirse al repositorio. El archivo `backend/.env` solo es necesario si ejecuta el backend sin Docker.
+
+## Despliegue local con Docker
+
+Desde la carpeta principal del proyecto, si desea reconstruir y dejar los servicios en segundo plano, ejecute:
+
+```bash
+docker compose up -d --build
+```
 
 ## Comandos utiles
 
@@ -103,10 +143,10 @@ Consultar logs:
 
 ```bash
 docker compose logs -f backend
-docker compose logs -f mobile
+docker compose logs -f frontend
 ```
 
-## Seguridad local y produccion
+## Seguridad local
 
 El proyecto queda preparado con una configuracion segura base:
 
@@ -122,22 +162,6 @@ El proyecto queda preparado con una configuracion segura base:
 - Tokens de verificacion de correo con expiracion.
 - QR temporal de corta duracion.
 - Validacion de QR restringida al bicicletero activo del guardia.
-
-Para publicar en servidor, utilice:
-
-```bash
-docker compose -f docker-compose.prod.yml build --no-cache
-docker compose -f docker-compose.prod.yml up -d
-```
-
-Antes de produccion se deben configurar:
-
-- Dominio publico y HTTPS.
-- `PUBLIC_API_BASE_URL` con la URL publica del backend.
-- `CORS_ORIGINS` y `FRONTEND_URL` correctos.
-- SMTP real, recomendado Brevo.
-- Backups de base de datos.
-- Secretos seguros en `.env` y `backend/.env`.
 
 ## Credenciales demo
 
@@ -296,7 +320,6 @@ Docker Compose:
 
 ```bash
 docker compose config --quiet
-docker compose -f docker-compose.prod.yml config --quiet
 ```
 
 ## Modelo relacional
