@@ -36,14 +36,6 @@ cd ubbike
 docker compose up
 ```
 
-Si el repositorio ya fue clonado previamente, entrar a la carpeta del proyecto, actualizar la rama principal y levantar los servicios:
-
-```bash
-git switch main
-git pull
-docker compose up
-```
-
 ### Verificacion de ejecucion
 
 Cuando los contenedores terminen de iniciar, verificar los siguientes accesos:
