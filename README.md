@@ -17,9 +17,9 @@ El proyecto cuenta con un backend API REST desarrollado con Node.js, Express y T
 - Navegador web para probar la aplicacion local.
 - Flutter y Node.js solo si se desea ejecutar sin Docker.
 
-## Docker Compose
+## Docker Compose Tarea 
 
-Esta seccion contiene el procedimiento especifico para la entrega de la tarea de Docker Compose. El archivo `docker-compose.yml` se encuentra en la raiz del repositorio y levanta todos los servicios necesarios del proyecto.
+Esta seccion contiene el procedimiento especifico para la entrega de la tarea de Docker Compose encomendada. El archivo `docker-compose.yml` se encuentra en la raiz del repositorio y levanta todos los servicios necesarios del proyecto.
 
 ### Requisitos para ejecutar
 
