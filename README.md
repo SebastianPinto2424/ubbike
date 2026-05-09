@@ -28,18 +28,19 @@ Esta seccion contiene el procedimiento especifico para la entrega de integracion
 
 ### Procedimiento desde cero
 
-Clonar directamente la rama de entrega:
+Clonar el repositorio, entrar a la raiz del proyecto y levantar los servicios:
 
 ```bash
-git clone -b rama-tarea1-docker https://github.com/SebastianPinto2424/ubbike.git
+git clone https://github.com/SebastianPinto2424/ubbike.git
 cd ubbike
 docker compose up
 ```
 
-Si el repositorio ya fue clonado previamente, entrar a la carpeta del proyecto y cambiar a la rama de entrega:
+Si el repositorio ya fue clonado previamente, entrar a la carpeta del proyecto, actualizar la rama principal y levantar los servicios:
 
 ```bash
-git switch rama-tarea1-docker
+git switch main
+git pull
 docker compose up
 ```
 
