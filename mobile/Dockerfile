@@ -1,4 +1,4 @@
-FROM ghcr.io/cirruslabs/flutter:stable AS build
+FROM ghcr.io/cirruslabs/flutter:stable@sha256:00a00f16768db672361fb5b79396b2748b75391c9d3bd9a33fc40b257ee94ef0 AS build
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY . .
 ARG API_BASE_URL=http://localhost:3000
 RUN flutter build web --release --no-web-resources-cdn --dart-define=API_BASE_URL=$API_BASE_URL
 
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0
 
 ARG API_BASE_URL=http://localhost:3000
 ARG CSP_CONNECT_SRC
