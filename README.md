@@ -1,8 +1,8 @@
 # UBBike
 
-UBBike es una aplicacion web/mobile y API REST para la gestion de bicicleteros de la Universidad del Bio-Bio. El sistema permite registrar usuarios y bicicletas, gestionar ingresos y retiros mediante codigos QR, apoyar la operacion de guardias, y mantener trazabilidad de los movimientos realizados en los bicicleteros.
+UBBike es una aplicacion fullstack en desarrollo para gestionar el uso de bicicleteros en la Universidad del Bio-Bio. El sistema busca permitir el registro de usuarios institucionales, la administracion de bicicletas, la generacion de codigos QR para ingresos y retiros, la validacion de accesos por parte de guardias y la trazabilidad de movimientos, solicitudes y notificaciones.
 
-El proyecto esta desarrollado como una aplicacion fullstack. El backend corresponde a una API REST construida con Node.js, Express y TypeScript, utilizando TypeORM para la persistencia de datos en PostgreSQL y Redis para apoyo en control de intentos y operaciones temporales. El frontend corresponde a una aplicacion Flutter Web/Mobile servida mediante Nginx en Docker.
+El proyecto cuenta con un backend API REST desarrollado con Node.js, Express y TypeScript, conectado a PostgreSQL mediante TypeORM. El frontend esta desarrollado con Flutter y, para esta entrega, se despliega como aplicacion web dentro de Docker usando Nginx. La infraestructura local se levanta con Docker Compose e incluye backend, frontend, base de datos PostgreSQL, Redis y Mailpit para pruebas de correo.
 
 ## Estructura del proyecto
 
