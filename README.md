@@ -83,7 +83,7 @@ Copy-Item .env.example .env
 Luego reemplace, como minimo:
 
 - `.env`: `POSTGRES_PASSWORD` por una clave segura.
-- `.env`: `JWT_SECRET` por un secreto largo de 32 o mas caracteres.
+- `.env`: `JWT_SECRET` por una clave secreta de largo de 32 o mas caracteres.
 
 El archivo `.env` esta ignorado por Git y no debe subirse al repositorio. El archivo `backend/.env` solo es necesario si ejecuta el backend sin Docker.
 
