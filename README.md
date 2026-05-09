@@ -19,7 +19,7 @@ Aplicacion web/mobile y API REST para gestionar el registro de bicicletas, el in
 
 Esta seccion contiene el procedimiento especifico para la entrega de integracion con Docker Compose. El archivo `docker-compose.yml` se encuentra en la raiz del repositorio y levanta todos los servicios necesarios del proyecto.
 
-### Requisitos para ejecutar la entrega
+### Requisitos para ejecutar
 
 - Docker Desktop o Docker Engine con Docker Compose disponible.
 - Git.
