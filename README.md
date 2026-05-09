@@ -23,7 +23,7 @@ Esta seccion contiene el procedimiento especifico para la entrega de la tarea de
 
 ### Requisitos para ejecutar
 
-- Docker Desktop o Docker Engine con Docker Compose disponible.
+- Docker Desktop debe estar instalado y en ejecucion antes de correr `docker compose up`.
 - Git.
 - Navegador web para acceder a la aplicacion.
 - No es obligatorio crear archivos `.env`; el `docker-compose.yml` incluye valores por defecto para evaluacion local.
