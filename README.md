@@ -49,11 +49,9 @@ docker compose up
 Cuando los contenedores terminen de iniciar, verificar los siguientes accesos:
 
 - Aplicacion web: [http://localhost:8081](http://localhost:8081)
-- Backend API: [http://localhost:3000](http://localhost:3000)
 - Health check backend: [http://localhost:3000/health](http://localhost:3000/health)
 - Correos de prueba Mailpit: [http://localhost:8025](http://localhost:8025)
 - PostgreSQL local: `127.0.0.1:5432`
-- Redis local: `127.0.0.1:6379`
 
 Para consultar el estado de los contenedores:
 
