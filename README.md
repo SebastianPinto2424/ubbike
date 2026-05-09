@@ -15,9 +15,9 @@ Aplicacion web/mobile y API REST para gestionar el registro de bicicletas, el in
 - Navegador web para probar la aplicacion local.
 - Flutter y Node.js solo si se desea ejecutar sin Docker.
 
-## Entrega Docker Compose
+## Docker Compose
 
-Esta seccion contiene el procedimiento especifico para la entrega de integracion con Docker Compose. El archivo `docker-compose.yml` se encuentra en la raiz del repositorio y levanta todos los servicios necesarios del proyecto.
+Esta seccion contiene el procedimiento especifico para la entrega de la tarea de Docker Compose. El archivo `docker-compose.yml` se encuentra en la raiz del repositorio y levanta todos los servicios necesarios del proyecto.
 
 ### Requisitos para ejecutar
 
