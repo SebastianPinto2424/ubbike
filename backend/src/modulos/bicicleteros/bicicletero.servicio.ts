@@ -1,27 +1,22 @@
-import { fuenteDatos } from '../../configuracion/base-datos';
-import { Bicicleta } from '../bicicletas/bicicleta.entidad';
-import { Bicicletero } from './bicicletero.entidad';
+import { prisma } from '../../configuracion/prisma';
 
 export const listarBicicleteros = async () => {
-  const bicicleteros = await fuenteDatos.getRepository(Bicicletero).find({
+  const bicicleteros = await prisma.bicicletero.findMany({
     where: {
       activo: true
     },
-    order: {
-      nombre: 'ASC'
+    orderBy: {
+      nombre: 'asc'
     }
   });
 
-  const repoBicicletas = fuenteDatos.getRepository(Bicicleta);
-
   return Promise.all(
     bicicleteros.map(async (bicicletero) => {
-      const ocupados = await repoBicicletas.count({
+      const ocupados = await prisma.bicicleta.count({
         where: {
           dentroBicicletero: true,
-          bicicleteroActual: {
-            id: bicicletero.id
-          }
+          bicicleteroActualId: bicicletero.id,
+          eliminadoEn: null
         }
       });
       const capacidad = Math.max(bicicletero.capacidad, 1);

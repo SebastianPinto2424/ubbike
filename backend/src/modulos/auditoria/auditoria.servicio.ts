@@ -1,6 +1,5 @@
-import { fuenteDatos } from '../../configuracion/base-datos';
-import { Usuario } from '../usuarios/usuario.entidad';
-import { AuditoriaEvento } from './auditoria.entidad';
+import { prisma, type ClientePrisma } from '../../configuracion/prisma';
+import { Prisma } from '../../generated/prisma/client';
 
 type DatosAuditoria = {
   actorUsuarioId?: string | null;
@@ -12,25 +11,22 @@ type DatosAuditoria = {
   datos?: Record<string, unknown> | null;
 };
 
-const repositorioAuditoria = () => fuenteDatos.getRepository(AuditoriaEvento);
-
-export const registrarAuditoria = async (datos: DatosAuditoria): Promise<void> => {
+export const registrarAuditoria = async (
+  datos: DatosAuditoria,
+  db: ClientePrisma = prisma
+): Promise<void> => {
   try {
-    if (!fuenteDatos.isInitialized) {
-      return;
-    }
-
-    await repositorioAuditoria().save(
-      repositorioAuditoria().create({
-        actorUsuario: datos.actorUsuarioId ? ({ id: datos.actorUsuarioId } as Usuario) : null,
+    await db.auditoriaEvento.create({
+      data: {
+        actorUsuarioId: datos.actorUsuarioId ?? null,
         accion: datos.accion,
         entidad: datos.entidad,
         entidadId: datos.entidadId ?? null,
         ip: datos.ip ?? null,
         userAgent: datos.userAgent ?? null,
-        datos: datos.datos ?? null
-      })
-    );
+        datos: datos.datos as Prisma.InputJsonValue | undefined
+      }
+    });
   } catch (error) {
     console.error('No se pudo registrar evento de auditoria', error);
   }

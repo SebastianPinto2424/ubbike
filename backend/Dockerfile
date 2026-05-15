@@ -5,6 +5,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
+COPY prisma ./prisma
+COPY prisma.config.ts ./
 COPY src ./src
 COPY tsconfig.json ./
 RUN npm run build
@@ -18,10 +20,12 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --omit=dev
 
+COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node prisma.config.ts ./
 COPY --from=deps --chown=node:node /app/dist ./dist
 
 USER node
 
 EXPOSE 3000
 
-CMD ["node", "dist/servidor.js"]
+CMD ["sh", "-c", "npm run migrate && node dist/servidor.js"]

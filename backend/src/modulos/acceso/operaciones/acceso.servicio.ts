@@ -1,18 +1,15 @@
-﻿import { ErrorHttp } from '../../../comun/errors/error-http';
-import { fuenteDatos } from '../../../configuracion/base-datos';
+import { ErrorHttp } from '../../../comun/errors/error-http';
+import { prisma, type ClientePrisma } from '../../../configuracion/prisma';
+import { Prisma } from '../../../generated/prisma/client';
 import { registrarAuditoria } from '../../auditoria/auditoria.servicio';
-import { Bicicleta } from '../../bicicletas/bicicleta.entidad';
-import { Bicicletero } from '../../bicicleteros/bicicletero.entidad';
 import { EstadoMovimiento } from '../../historial/estado-movimiento';
-import { Movimiento } from '../../historial/movimiento.entidad';
 import { TipoMovimiento } from '../../historial/tipo-movimiento';
 import { crearNotificacion } from '../../notificaciones/notificacion.servicio';
 import { TipoNotificacion } from '../../notificaciones/tipo-notificacion';
-import { CodigoQrTemporal } from '../../qr/codigo-qr-temporal.entidad';
 import { obtenerCodigoQrValido } from '../../qr/qr.servicio';
-import { Usuario } from '../../usuarios/usuario.entidad';
 import { RolUsuario } from '../../usuarios/rol-usuario';
-import { AsignacionGuardia } from '../asignaciones/asignacion-guardia.entidad';
+import { includeMovimientoCompleto, mapearMovimiento } from './acceso.mapeador';
+import { validarReglaMovimiento } from './acceso.reglas';
 
 type DatosConfirmarQr = {
   token: string;
@@ -37,56 +34,30 @@ type DatosGestionManual = {
   motivo?: string | null;
 };
 
-const repoMovimientos = () => fuenteDatos.getRepository(Movimiento);
-const repoQr = () => fuenteDatos.getRepository(CodigoQrTemporal);
-const repoBicicletas = () => fuenteDatos.getRepository(Bicicleta);
-const repoBicicleteros = () => fuenteDatos.getRepository(Bicicletero);
-const repoUsuarios = () => fuenteDatos.getRepository(Usuario);
-const repoAsignaciones = () => fuenteDatos.getRepository(AsignacionGuardia);
-
-const mapearMovimiento = (movimiento: Movimiento) => ({
-  id: movimiento.id,
-  tipo: movimiento.tipo,
-  estado: movimiento.estado,
-  motivoDenegacion: movimiento.motivoDenegacion,
-  origen: movimiento.origen,
-  creadoEn: movimiento.creadoEn,
-  usuario: {
-    id: movimiento.usuario.id,
-    nombre: movimiento.usuario.nombre,
-    correo: movimiento.usuario.correo,
-    rut: movimiento.usuario.rut
-  },
-  bicicleta: {
-    id: movimiento.bicicleta.id,
-    descripcion: movimiento.bicicleta.descripcion
-  },
-  bicicletero: {
-    id: movimiento.bicicletero.id,
-    nombre: movimiento.bicicletero.nombre
-  },
-  guardia: {
-    id: movimiento.validadoPorGuardia.id,
-    nombre: movimiento.validadoPorGuardia.nombre,
-    correo: movimiento.validadoPorGuardia.correo
-  }
-});
+type UsuarioOperacion = Prisma.UsuarioGetPayload<Record<string, never>>;
+type BicicleteroOperacion = Prisma.BicicleteroGetPayload<Record<string, never>>;
+type BicicletaOperacion = Prisma.BicicletaGetPayload<{
+  include: {
+    bicicleteroActual: true;
+  };
+}>;
 
 const obtenerBicicleteroOperacion = async (
   guardiaId: string,
   rol: string,
   bicicleteroId?: string,
-  bicicleteroQr?: Bicicletero | null
+  bicicleteroQr?: BicicleteroOperacion | null,
+  db: ClientePrisma = prisma
 ) => {
-  const validarAsignacionGuardia = async (bicicletero: Bicicletero) => {
+  const validarAsignacionGuardia = async (bicicletero: BicicleteroOperacion) => {
     if (rol !== RolUsuario.GUARDIA) {
       return;
     }
 
-    const asignacion = await repoAsignaciones().findOne({
+    const asignacion = await db.asignacionGuardia.findFirst({
       where: {
-        guardia: { id: guardiaId },
-        bicicletero: { id: bicicletero.id },
+        guardiaId,
+        bicicleteroId: bicicletero.id,
         activa: true
       }
     });
@@ -97,7 +68,12 @@ const obtenerBicicleteroOperacion = async (
   };
 
   if (bicicleteroId) {
-    const bicicletero = await repoBicicleteros().findOneBy({ id: bicicleteroId });
+    const bicicletero = await db.bicicletero.findUnique({
+      where: {
+        id: bicicleteroId
+      }
+    });
+
     if (!bicicletero) {
       throw new ErrorHttp(404, 'Bicicletero no encontrado');
     }
@@ -111,16 +87,16 @@ const obtenerBicicleteroOperacion = async (
     return bicicleteroQr;
   }
 
-  const asignacion = await repoAsignaciones().findOne({
+  const asignacion = await db.asignacionGuardia.findFirst({
     where: {
-      guardia: { id: guardiaId },
+      guardiaId,
       activa: true
     },
-    relations: {
+    include: {
       bicicletero: true
     },
-    order: {
-      iniciaEn: 'DESC'
+    orderBy: {
+      iniciaEn: 'desc'
     }
   });
 
@@ -131,16 +107,6 @@ const obtenerBicicleteroOperacion = async (
   return asignacion.bicicletero;
 };
 
-const validarReglaMovimiento = (bicicleta: Bicicleta, tipo: TipoMovimiento) => {
-  if (tipo === TipoMovimiento.INGRESO && bicicleta.dentroBicicletero) {
-    throw new ErrorHttp(409, 'La bicicleta ya registra ingreso activo');
-  }
-
-  if (tipo === TipoMovimiento.SALIDA && !bicicleta.dentroBicicletero) {
-    throw new ErrorHttp(409, 'La bicicleta no registra ingreso activo');
-  }
-};
-
 const registrarMovimiento = async ({
   usuario,
   bicicleta,
@@ -149,195 +115,247 @@ const registrarMovimiento = async ({
   tipo,
   estado,
   origen,
-  motivo
+  motivo,
+  db
 }: {
-  usuario: Usuario;
-  bicicleta: Bicicleta;
-  bicicletero: Bicicletero;
+  usuario: UsuarioOperacion;
+  bicicleta: BicicletaOperacion;
+  bicicletero: BicicleteroOperacion;
   guardiaId: string;
   tipo: TipoMovimiento;
   estado: EstadoMovimiento;
   origen: 'QR' | 'MANUAL';
   motivo?: string | null;
+  db: ClientePrisma;
 }) => {
-  const movimiento = await repoMovimientos().save(
-    repoMovimientos().create({
-      usuario,
-      bicicleta,
-      bicicletero,
-      validadoPorGuardia: { id: guardiaId } as Usuario,
+  const movimiento = await db.movimiento.create({
+    data: {
+      usuarioId: usuario.id,
+      bicicletaId: bicicleta.id,
+      bicicleteroId: bicicletero.id,
+      validadoPorGuardiaId: guardiaId,
       tipo,
       estado,
       origen,
       motivoDenegacion: motivo ?? null
-    })
-  );
+    }
+  });
 
   if (estado === EstadoMovimiento.CONFIRMADO) {
-    if (tipo === TipoMovimiento.INGRESO) {
-      bicicleta.dentroBicicletero = true;
-      bicicleta.bicicleteroActual = bicicletero;
-    } else {
-      bicicleta.dentroBicicletero = false;
-      bicicleta.bicicleteroActual = null;
-    }
-
-    await repoBicicletas().save(bicicleta);
+    await db.bicicleta.update({
+      where: {
+        id: bicicleta.id
+      },
+      data:
+        tipo === TipoMovimiento.INGRESO
+          ? {
+              dentroBicicletero: true,
+              bicicleteroActualId: bicicletero.id
+            }
+          : {
+              dentroBicicletero: false,
+              bicicleteroActualId: null
+            }
+    });
   }
 
-  await crearNotificacion({
-    usuarioId: usuario.id,
-    titulo:
-      estado === EstadoMovimiento.CONFIRMADO
-        ? `Movimiento confirmado: ${tipo.toLowerCase()}`
-        : `Movimiento denegado: ${tipo.toLowerCase()}`,
-    mensaje:
-      estado === EstadoMovimiento.CONFIRMADO
-        ? `${bicicleta.descripcion} fue registrada en ${bicicletero.nombre}.`
-        : (motivo ?? 'Operacion denegada por guardia.'),
-    tipo: TipoNotificacion.MOVIMIENTO,
-    datos: {
-      movimientoId: movimiento.id,
-      estado,
-      tipo
-    }
-  });
-
-  await registrarAuditoria({
-    actorUsuarioId: guardiaId,
-    accion:
-      estado === EstadoMovimiento.CONFIRMADO ? 'MOVIMIENTO_CONFIRMADO' : 'MOVIMIENTO_DENEGADO',
-    entidad: 'movimientos',
-    entidadId: movimiento.id,
-    datos: {
+  await crearNotificacion(
+    {
       usuarioId: usuario.id,
-      bicicletaId: bicicleta.id,
-      bicicleteroId: bicicletero.id,
-      tipo,
-      estado,
-      origen
-    }
-  });
+      titulo:
+        estado === EstadoMovimiento.CONFIRMADO
+          ? `Movimiento confirmado: ${tipo.toLowerCase()}`
+          : `Movimiento denegado: ${tipo.toLowerCase()}`,
+      mensaje:
+        estado === EstadoMovimiento.CONFIRMADO
+          ? `${bicicleta.descripcion} fue registrada en ${bicicletero.nombre}.`
+          : (motivo ?? 'Operacion denegada por guardia.'),
+      tipo: TipoNotificacion.MOVIMIENTO,
+      datos: {
+        movimientoId: movimiento.id,
+        estado,
+        tipo
+      }
+    },
+    db
+  );
 
-  const movimientoCompleto = await repoMovimientos().findOneOrFail({
-    where: { id: movimiento.id },
-    relations: {
-      usuario: true,
-      bicicleta: true,
-      bicicletero: true,
-      validadoPorGuardia: true
-    }
+  await registrarAuditoria(
+    {
+      actorUsuarioId: guardiaId,
+      accion:
+        estado === EstadoMovimiento.CONFIRMADO ? 'MOVIMIENTO_CONFIRMADO' : 'MOVIMIENTO_DENEGADO',
+      entidad: 'movimientos',
+      entidadId: movimiento.id,
+      datos: {
+        usuarioId: usuario.id,
+        bicicletaId: bicicleta.id,
+        bicicleteroId: bicicletero.id,
+        tipo,
+        estado,
+        origen
+      }
+    },
+    db
+  );
+
+  const movimientoCompleto = await db.movimiento.findUniqueOrThrow({
+    where: {
+      id: movimiento.id
+    },
+    include: includeMovimientoCompleto
   });
 
   return mapearMovimiento(movimientoCompleto);
 };
 
 export const confirmarQr = async (datos: DatosConfirmarQr) => {
-  const codigo = await obtenerCodigoQrValido(datos.token);
-  const bicicletero = await obtenerBicicleteroOperacion(
-    datos.guardiaId,
-    datos.rol,
-    datos.bicicleteroId,
-    codigo.bicicletero
-  );
+  return prisma.$transaction(async (db) => {
+    const codigo = await obtenerCodigoQrValido(datos.token, db);
+    const bicicletero = await obtenerBicicleteroOperacion(
+      datos.guardiaId,
+      datos.rol,
+      datos.bicicleteroId,
+      codigo.bicicletero,
+      db
+    );
+    const tipo = codigo.tipo as TipoMovimiento;
 
-  validarReglaMovimiento(codigo.bicicleta, codigo.tipo);
+    validarReglaMovimiento(codigo.bicicleta, tipo);
 
-  const movimiento = await registrarMovimiento({
-    usuario: codigo.usuario,
-    bicicleta: codigo.bicicleta,
-    bicicletero,
-    guardiaId: datos.guardiaId,
-    tipo: codigo.tipo,
-    estado: EstadoMovimiento.CONFIRMADO,
-    origen: 'QR'
+    const marcado = await db.codigoQrTemporal.updateMany({
+      where: {
+        id: codigo.id,
+        usado: false
+      },
+      data: {
+        usado: true
+      }
+    });
+
+    if (marcado.count !== 1) {
+      throw new ErrorHttp(409, 'QR ya fue usado o reemplazado');
+    }
+
+    return registrarMovimiento({
+      usuario: codigo.usuario,
+      bicicleta: codigo.bicicleta,
+      bicicletero,
+      guardiaId: datos.guardiaId,
+      tipo,
+      estado: EstadoMovimiento.CONFIRMADO,
+      origen: 'QR',
+      db
+    });
   });
-
-  codigo.usado = true;
-  await repoQr().save(codigo);
-
-  return movimiento;
 };
 
 export const denegarQr = async (datos: DatosDenegarQr) => {
-  const codigo = await obtenerCodigoQrValido(datos.token);
-  const bicicletero = await obtenerBicicleteroOperacion(
-    datos.guardiaId,
-    datos.rol,
-    datos.bicicleteroId,
-    codigo.bicicletero
-  );
+  return prisma.$transaction(async (db) => {
+    const codigo = await obtenerCodigoQrValido(datos.token, db);
+    const bicicletero = await obtenerBicicleteroOperacion(
+      datos.guardiaId,
+      datos.rol,
+      datos.bicicleteroId,
+      codigo.bicicletero,
+      db
+    );
+    const tipo = codigo.tipo as TipoMovimiento;
 
-  const movimiento = await registrarMovimiento({
-    usuario: codigo.usuario,
-    bicicleta: codigo.bicicleta,
-    bicicletero,
-    guardiaId: datos.guardiaId,
-    tipo: codigo.tipo,
-    estado: EstadoMovimiento.DENEGADO,
-    origen: 'QR',
-    motivo: datos.motivo
+    const marcado = await db.codigoQrTemporal.updateMany({
+      where: {
+        id: codigo.id,
+        usado: false
+      },
+      data: {
+        usado: true
+      }
+    });
+
+    if (marcado.count !== 1) {
+      throw new ErrorHttp(409, 'QR ya fue usado o reemplazado');
+    }
+
+    return registrarMovimiento({
+      usuario: codigo.usuario,
+      bicicleta: codigo.bicicleta,
+      bicicletero,
+      guardiaId: datos.guardiaId,
+      tipo,
+      estado: EstadoMovimiento.DENEGADO,
+      origen: 'QR',
+      motivo: datos.motivo,
+      db
+    });
   });
-
-  codigo.usado = true;
-  await repoQr().save(codigo);
-
-  return movimiento;
 };
 
 export const registrarGestionManual = async (datos: DatosGestionManual) => {
-  const usuario = await repoUsuarios().findOne({
-    where: [
+  return prisma.$transaction(async (db) => {
+    const criteriosUsuario = [
       ...(datos.correo ? [{ correo: datos.correo.toLowerCase() }] : []),
       ...(datos.rut ? [{ rut: datos.rut }] : [])
-    ]
-  });
+    ];
 
-  if (!usuario) {
-    throw new ErrorHttp(404, 'Usuario no encontrado');
-  }
-
-  const bicicleta = await repoBicicletas().findOne({
-    where: datos.bicicletaId
-      ? {
-          id: datos.bicicletaId,
-          usuario: { id: usuario.id }
-        }
-      : {
-          usuario: { id: usuario.id },
-          activa: true
-        },
-    relations: {
-      usuario: true,
-      bicicleteroActual: true
+    if (!criteriosUsuario.length) {
+      throw new ErrorHttp(400, 'Debes indicar correo o RUT');
     }
-  });
 
-  if (!bicicleta) {
-    throw new ErrorHttp(404, 'Bicicleta activa no encontrada para el usuario');
-  }
+    const usuario = await db.usuario.findFirst({
+      where: {
+        OR: criteriosUsuario
+      }
+    });
 
-  const bicicletero = await obtenerBicicleteroOperacion(
-    datos.guardiaId,
-    datos.rol,
-    datos.bicicleteroId,
-    bicicleta.bicicleteroActual
-  );
+    if (!usuario) {
+      throw new ErrorHttp(404, 'Usuario no encontrado');
+    }
 
-  const estado = datos.denegar ? EstadoMovimiento.DENEGADO : EstadoMovimiento.CONFIRMADO;
+    const bicicleta = await db.bicicleta.findFirst({
+      where: datos.bicicletaId
+        ? {
+            id: datos.bicicletaId,
+            usuarioId: usuario.id,
+            eliminadoEn: null
+          }
+        : {
+            usuarioId: usuario.id,
+            activa: true,
+            eliminadoEn: null
+          },
+      include: {
+        bicicleteroActual: true
+      }
+    });
 
-  if (estado === EstadoMovimiento.CONFIRMADO) {
-    validarReglaMovimiento(bicicleta, datos.tipo);
-  }
+    if (!bicicleta) {
+      throw new ErrorHttp(404, 'Bicicleta activa no encontrada para el usuario');
+    }
 
-  return registrarMovimiento({
-    usuario,
-    bicicleta,
-    bicicletero,
-    guardiaId: datos.guardiaId,
-    tipo: datos.tipo,
-    estado,
-    origen: 'MANUAL',
-    motivo: datos.motivo
+    const bicicletero = await obtenerBicicleteroOperacion(
+      datos.guardiaId,
+      datos.rol,
+      datos.bicicleteroId,
+      bicicleta.bicicleteroActual,
+      db
+    );
+
+    const estado = datos.denegar ? EstadoMovimiento.DENEGADO : EstadoMovimiento.CONFIRMADO;
+
+    if (estado === EstadoMovimiento.CONFIRMADO) {
+      validarReglaMovimiento(bicicleta, datos.tipo);
+    }
+
+    return registrarMovimiento({
+      usuario,
+      bicicleta,
+      bicicletero,
+      guardiaId: datos.guardiaId,
+      tipo: datos.tipo,
+      estado,
+      origen: 'MANUAL',
+      motivo: datos.motivo,
+      db
+    });
   });
 };

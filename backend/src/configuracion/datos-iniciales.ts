@@ -1,11 +1,8 @@
-﻿import bcrypt from 'bcryptjs';
-import { fuenteDatos } from './base-datos';
-import { AsignacionGuardia } from '../modulos/acceso/asignaciones/asignacion-guardia.entidad';
-import { Bicicletero } from '../modulos/bicicleteros/bicicletero.entidad';
+import bcrypt from 'bcryptjs';
+import { prisma } from './prisma';
 import { crearNotificacion } from '../modulos/notificaciones/notificacion.servicio';
 import { TipoNotificacion } from '../modulos/notificaciones/tipo-notificacion';
 import { RolUsuario } from '../modulos/usuarios/rol-usuario';
-import { Usuario } from '../modulos/usuarios/usuario.entidad';
 
 const contrasenaDemo = 'UBBike2026*';
 
@@ -58,47 +55,68 @@ const bicicleterosBase = [
 ];
 
 export const cargarDatosIniciales = async (): Promise<void> => {
-  const usuarios = fuenteDatos.getRepository(Usuario);
-  const bicicleteros = fuenteDatos.getRepository(Bicicletero);
-  const asignaciones = fuenteDatos.getRepository(AsignacionGuardia);
   const contrasenaHash = await bcrypt.hash(contrasenaDemo, 12);
 
-  const centralAnterior = await usuarios.findOneBy({
-    correo: 'central.seguridad@ubiobio.cl'
+  const centralAnterior = await prisma.usuario.findUnique({
+    where: {
+      correo: 'central.seguridad@ubiobio.cl'
+    }
+  });
+  const centralActual = await prisma.usuario.findUnique({
+    where: {
+      correo: 'admin.central@ubiobio.cl'
+    }
   });
 
-  if (centralAnterior) {
-    centralAnterior.nombre = 'Admin Central Seguridad';
-    centralAnterior.correo = 'admin.central@ubiobio.cl';
-    centralAnterior.rol = RolUsuario.ADMIN_CENTRAL;
-    centralAnterior.cuentaActiva = true;
-    centralAnterior.correoVerificado = true;
-    centralAnterior.tokenVerificacionCorreoExpiraEn = null;
-    await usuarios.save(centralAnterior);
+  if (centralAnterior && !centralActual) {
+    await prisma.usuario.update({
+      where: {
+        id: centralAnterior.id
+      },
+      data: {
+        nombre: 'Admin Central Seguridad',
+        correo: 'admin.central@ubiobio.cl',
+        rol: RolUsuario.ADMIN_CENTRAL,
+        cuentaActiva: true,
+        correoVerificado: true,
+        tokenVerificacionCorreoExpiraEn: null
+      }
+    });
   }
 
   for (const usuarioDemo of usuariosDemo) {
-    const existente = await usuarios.findOneBy({ correo: usuarioDemo.correo });
+    const existente = await prisma.usuario.findUnique({
+      where: {
+        correo: usuarioDemo.correo
+      }
+    });
 
     if (existente) {
-      existente.nombre = usuarioDemo.nombre;
-      existente.rut = usuarioDemo.rut;
-      existente.rol = usuarioDemo.rol;
-      existente.cuentaActiva = true;
-      existente.correoVerificado = true;
-      existente.tokenVerificacionCorreo = null;
-      existente.tokenVerificacionCorreoExpiraEn = null;
-      await usuarios.save(existente);
+      await prisma.usuario.update({
+        where: {
+          id: existente.id
+        },
+        data: {
+          nombre: usuarioDemo.nombre,
+          rut: usuarioDemo.rut,
+          rol: usuarioDemo.rol,
+          cuentaActiva: true,
+          correoVerificado: true,
+          tokenVerificacionCorreo: null,
+          tokenVerificacionCorreoExpiraEn: null
+        }
+      });
       continue;
     }
 
-    const usuario = usuarios.create({
-      ...usuarioDemo,
-      contrasenaHash,
-      cuentaActiva: true,
-      correoVerificado: true
+    const guardado = await prisma.usuario.create({
+      data: {
+        ...usuarioDemo,
+        contrasenaHash,
+        cuentaActiva: true,
+        correoVerificado: true
+      }
     });
-    const guardado = await usuarios.save(usuario);
 
     await crearNotificacion({
       usuarioId: guardado.id,
@@ -109,74 +127,83 @@ export const cargarDatosIniciales = async (): Promise<void> => {
   }
 
   for (const bicicleteroBase of bicicleterosBase) {
-    let existente = await bicicleteros.findOneBy({
-      nombre: bicicleteroBase.nombre
+    let existente = await prisma.bicicletero.findUnique({
+      where: {
+        nombre: bicicleteroBase.nombre
+      }
     });
 
     for (const nombreAnterior of bicicleteroBase.nombresAnteriores) {
       if (existente) {
         break;
       }
-      existente = await bicicleteros.findOneBy({ nombre: nombreAnterior });
+      existente = await prisma.bicicletero.findUnique({ where: { nombre: nombreAnterior } });
     }
 
     const datosBicicletero = {
       nombre: bicicleteroBase.nombre,
       ubicacion: bicicleteroBase.ubicacion,
-      capacidad: bicicleteroBase.capacidad
+      capacidad: bicicleteroBase.capacidad,
+      activo: true
     };
 
     if (!existente) {
-      await bicicleteros.save(
-        bicicleteros.create({
-          ...datosBicicletero,
-          activo: true
-        })
-      );
+      await prisma.bicicletero.create({
+        data: datosBicicletero
+      });
     } else {
-      existente.nombre = datosBicicletero.nombre;
-      existente.ubicacion = bicicleteroBase.ubicacion;
-      existente.capacidad = bicicleteroBase.capacidad;
-      existente.activo = true;
-      await bicicleteros.save(existente);
+      await prisma.bicicletero.update({
+        where: {
+          id: existente.id
+        },
+        data: datosBicicletero
+      });
     }
   }
 
   for (const bicicleteroBase of bicicleterosBase) {
     for (const nombreAnterior of bicicleteroBase.nombresAnteriores) {
-      const anterior = await bicicleteros.findOneBy({ nombre: nombreAnterior });
+      const anterior = await prisma.bicicletero.findUnique({ where: { nombre: nombreAnterior } });
 
       if (anterior) {
-        anterior.activo = false;
-        await bicicleteros.save(anterior);
+        await prisma.bicicletero.update({
+          where: {
+            id: anterior.id
+          },
+          data: {
+            activo: false
+          }
+        });
       }
     }
   }
 
-  const guardia = await usuarios.findOneBy({ correo: 'guardia@ubiobio.cl' });
-  const bicicleteroCentroIdiomas = await bicicleteros.findOneBy({
-    nombre: 'Bicicletero cercano al Centro de Idiomas'
+  const guardia = await prisma.usuario.findUnique({ where: { correo: 'guardia@ubiobio.cl' } });
+  const bicicleteroCentroIdiomas = await prisma.bicicletero.findUnique({
+    where: {
+      nombre: 'Bicicletero cercano al Centro de Idiomas'
+    }
   });
 
   if (guardia && bicicleteroCentroIdiomas) {
-    const asignacionExistente = await asignaciones.findOne({
+    const asignacionExistente = await prisma.asignacionGuardia.findFirst({
       where: {
-        guardia: { id: guardia.id },
-        bicicletero: { id: bicicleteroCentroIdiomas.id },
+        guardiaId: guardia.id,
+        bicicleteroId: bicicleteroCentroIdiomas.id,
         activa: true
       }
     });
 
     if (!asignacionExistente) {
-      await asignaciones.save(
-        asignaciones.create({
-          guardia,
-          bicicletero: bicicleteroCentroIdiomas,
+      await prisma.asignacionGuardia.create({
+        data: {
+          guardiaId: guardia.id,
+          bicicleteroId: bicicleteroCentroIdiomas.id,
           iniciaEn: new Date(),
           terminaEn: null,
           activa: true
-        })
-      );
+        }
+      });
     }
   }
 };

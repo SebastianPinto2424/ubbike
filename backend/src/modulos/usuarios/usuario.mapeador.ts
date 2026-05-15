@@ -1,4 +1,4 @@
-import { Usuario } from './usuario.entidad';
+import type { Usuario } from '../../generated/prisma/client';
 
 export const mapearUsuarioPublico = (usuario: Usuario) => ({
   id: usuario.id,

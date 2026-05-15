@@ -1,7 +1,7 @@
 import { ErrorHttp } from '../../comun/errors/error-http';
-import { fuenteDatos } from '../../configuracion/base-datos';
+import { prisma } from '../../configuracion/prisma';
+import { Prisma } from '../../generated/prisma/client';
 import { RolUsuario } from '../usuarios/rol-usuario';
-import { Movimiento } from './movimiento.entidad';
 
 type FiltrosHistorial = {
   usuarioId: string;
@@ -15,7 +15,18 @@ type FiltrosHistorial = {
   limite?: number;
 };
 
-const repoMovimientos = () => fuenteDatos.getRepository(Movimiento);
+const rolesCentral: string[] = [RolUsuario.ADMIN_CENTRAL, RolUsuario.ADMINISTRADOR];
+
+const includeMovimientoCompleto = {
+  usuario: true,
+  bicicleta: true,
+  bicicletero: true,
+  validadoPorGuardia: true
+} satisfies Prisma.MovimientoInclude;
+
+type MovimientoCompleto = Prisma.MovimientoGetPayload<{
+  include: typeof includeMovimientoCompleto;
+}>;
 
 const inicioPeriodo = (periodo?: 'DIA' | 'SEMANA' | 'MES' | 'ANIO') => {
   if (!periodo) {
@@ -43,10 +54,9 @@ const inicioPeriodo = (periodo?: 'DIA' | 'SEMANA' | 'MES' | 'ANIO') => {
   return fecha;
 };
 
-const puedeVerTodo = (rol: string) =>
-  [RolUsuario.ADMIN_CENTRAL, RolUsuario.ADMINISTRADOR].includes(rol as RolUsuario);
+const puedeVerTodo = (rol: string) => rolesCentral.includes(rol);
 
-const mapearMovimiento = (movimiento: Movimiento) => ({
+const mapearMovimiento = (movimiento: MovimientoCompleto) => ({
   id: movimiento.id,
   tipo: movimiento.tipo,
   estado: movimiento.estado,
@@ -78,56 +88,60 @@ export const listarMovimientos = async (filtros: FiltrosHistorial) => {
   const limite = filtros.limite && filtros.limite > 0 ? filtros.limite : 100;
   const pagina = filtros.pagina && filtros.pagina > 0 ? filtros.pagina : 1;
   const saltar = (pagina - 1) * limite;
-
-  const consulta = repoMovimientos()
-    .createQueryBuilder('movimiento')
-    .leftJoinAndSelect('movimiento.usuario', 'usuario')
-    .leftJoinAndSelect('movimiento.bicicleta', 'bicicleta')
-    .leftJoinAndSelect('movimiento.bicicletero', 'bicicletero')
-    .leftJoinAndSelect('movimiento.validadoPorGuardia', 'guardia')
-    .orderBy('movimiento.creadoEn', 'DESC')
-    .take(limite)
-    .skip(saltar);
+  const condiciones: Prisma.MovimientoWhereInput[] = [];
 
   if (filtros.rol === RolUsuario.GUARDIA) {
-    consulta.andWhere('guardia.id = :usuarioId', {
-      usuarioId: filtros.usuarioId
-    });
+    condiciones.push({ validadoPorGuardiaId: filtros.usuarioId });
   } else if (!puedeVerTodo(filtros.rol)) {
-    consulta.andWhere('usuario.id = :usuarioId', {
-      usuarioId: filtros.usuarioId
-    });
+    condiciones.push({ usuarioId: filtros.usuarioId });
   }
 
   if (filtros.q) {
-    const q = `%${filtros.q.toLowerCase()}%`;
-    consulta.andWhere(
-      "(LOWER(usuario.nombre) LIKE :q OR LOWER(usuario.correo) LIKE :q OR LOWER(COALESCE(usuario.rut, '')) LIKE :q OR LOWER(guardia.nombre) LIKE :q OR LOWER(guardia.correo) LIKE :q OR LOWER(bicicleta.descripcion) LIKE :q OR LOWER(bicicletero.nombre) LIKE :q)",
-      { q }
-    );
+    const q = filtros.q;
+    condiciones.push({
+      OR: [
+        { usuario: { nombre: { contains: q, mode: 'insensitive' } } },
+        { usuario: { correo: { contains: q, mode: 'insensitive' } } },
+        { usuario: { rut: { contains: q, mode: 'insensitive' } } },
+        { validadoPorGuardia: { nombre: { contains: q, mode: 'insensitive' } } },
+        { validadoPorGuardia: { correo: { contains: q, mode: 'insensitive' } } },
+        { bicicleta: { descripcion: { contains: q, mode: 'insensitive' } } },
+        { bicicletero: { nombre: { contains: q, mode: 'insensitive' } } }
+      ]
+    });
   }
 
   if (filtros.tipo && filtros.tipo !== 'TODOS') {
-    consulta.andWhere('movimiento.tipo = :tipo', { tipo: filtros.tipo });
+    condiciones.push({ tipo: filtros.tipo });
   }
 
   if (filtros.estado && filtros.estado !== 'TODOS') {
-    consulta.andWhere('movimiento.estado = :estado', { estado: filtros.estado });
+    condiciones.push({ estado: filtros.estado });
   }
 
   if (filtros.bicicleteroId) {
-    consulta.andWhere('bicicletero.id = :bicicleteroId', {
-      bicicleteroId: filtros.bicicleteroId
-    });
+    condiciones.push({ bicicleteroId: filtros.bicicleteroId });
   }
 
   const desde = inicioPeriodo(filtros.periodo);
 
   if (desde) {
-    consulta.andWhere('movimiento.creadoEn >= :desde', { desde });
+    condiciones.push({ creadoEn: { gte: desde } });
   }
 
-  const [movimientos, total] = await consulta.getManyAndCount();
+  const where: Prisma.MovimientoWhereInput = condiciones.length ? { AND: condiciones } : {};
+  const [movimientos, total] = await Promise.all([
+    prisma.movimiento.findMany({
+      where,
+      include: includeMovimientoCompleto,
+      orderBy: {
+        creadoEn: 'desc'
+      },
+      take: limite,
+      skip: saltar
+    }),
+    prisma.movimiento.count({ where })
+  ]);
 
   return {
     datos: movimientos.map(mapearMovimiento),
@@ -140,18 +154,13 @@ export const listarMovimientos = async (filtros: FiltrosHistorial) => {
   };
 };
 
-export const resumenHistorial = async (usuarioId: string, rol: string) => {
+export const resumenHistorial = async (_usuarioId: string, rol: string) => {
   if (!puedeVerTodo(rol)) {
     throw new ErrorHttp(403, 'No tienes permisos para ver el resumen central');
   }
 
-  const movimientos = await repoMovimientos().find({
-    relations: {
-      usuario: true,
-      bicicleta: true,
-      bicicletero: true,
-      validadoPorGuardia: true
-    }
+  const movimientos = await prisma.movimiento.findMany({
+    include: includeMovimientoCompleto
   });
 
   const semana = inicioPeriodo('SEMANA')!;

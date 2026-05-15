@@ -1,9 +1,7 @@
-import { In } from 'typeorm';
 import { ErrorHttp } from '../../comun/errors/error-http';
-import { fuenteDatos } from '../../configuracion/base-datos';
-import { Usuario } from '../usuarios/usuario.entidad';
+import { prisma, type ClientePrisma } from '../../configuracion/prisma';
+import { Prisma } from '../../generated/prisma/client';
 import { RolUsuario } from '../usuarios/rol-usuario';
-import { Notificacion } from './notificacion.entidad';
 import { TipoNotificacion } from './tipo-notificacion';
 
 type DatosCrearNotificacion = {
@@ -22,26 +20,30 @@ type DatosNotificarRoles = {
   datos?: Record<string, unknown>;
 };
 
-const repositorioNotificaciones = () => fuenteDatos.getRepository(Notificacion);
-const repositorioUsuarios = () => fuenteDatos.getRepository(Usuario);
-
-export const crearNotificacion = async (datos: DatosCrearNotificacion) => {
-  const repositorio = repositorioNotificaciones();
-  const notificacion = repositorio.create({
-    usuario: { id: datos.usuarioId },
-    titulo: datos.titulo,
-    mensaje: datos.mensaje,
-    tipo: datos.tipo ?? TipoNotificacion.SISTEMA,
-    datos: datos.datos ?? null
+export const crearNotificacion = async (
+  datos: DatosCrearNotificacion,
+  db: ClientePrisma = prisma
+) => {
+  return db.notificacion.create({
+    data: {
+      usuarioId: datos.usuarioId,
+      titulo: datos.titulo,
+      mensaje: datos.mensaje,
+      tipo: datos.tipo ?? TipoNotificacion.SISTEMA,
+      datos: datos.datos as Prisma.InputJsonValue | undefined
+    }
   });
-
-  return repositorio.save(notificacion);
 };
 
-export const notificarUsuariosPorRol = async (datos: DatosNotificarRoles) => {
-  const usuarios = await repositorioUsuarios().find({
+export const notificarUsuariosPorRol = async (
+  datos: DatosNotificarRoles,
+  db: ClientePrisma = prisma
+) => {
+  const usuarios = await db.usuario.findMany({
     where: {
-      rol: In(datos.roles)
+      rol: {
+        in: datos.roles
+      }
     },
     select: {
       id: true
@@ -50,39 +52,37 @@ export const notificarUsuariosPorRol = async (datos: DatosNotificarRoles) => {
 
   await Promise.all(
     usuarios.map((usuario) =>
-      crearNotificacion({
-        usuarioId: usuario.id,
-        titulo: datos.titulo,
-        mensaje: datos.mensaje,
-        tipo: datos.tipo,
-        datos: datos.datos
-      })
+      crearNotificacion(
+        {
+          usuarioId: usuario.id,
+          titulo: datos.titulo,
+          mensaje: datos.mensaje,
+          tipo: datos.tipo,
+          datos: datos.datos
+        },
+        db
+      )
     )
   );
 };
 
 export const listarNotificacionesUsuario = async (usuarioId: string) => {
-  return repositorioNotificaciones().find({
+  return prisma.notificacion.findMany({
     where: {
-      usuario: {
-        id: usuarioId
-      }
+      usuarioId
     },
-    order: {
-      creadaEn: 'DESC'
+    orderBy: {
+      creadaEn: 'desc'
     },
     take: 50
   });
 };
 
 export const marcarNotificacionLeida = async (usuarioId: string, notificacionId: string) => {
-  const repositorio = repositorioNotificaciones();
-  const notificacion = await repositorio.findOne({
+  const notificacion = await prisma.notificacion.findFirst({
     where: {
       id: notificacionId,
-      usuario: {
-        id: usuarioId
-      }
+      usuarioId
     }
   });
 
@@ -90,22 +90,26 @@ export const marcarNotificacionLeida = async (usuarioId: string, notificacionId:
     throw new ErrorHttp(404, 'Notificacion no encontrada');
   }
 
-  notificacion.leida = true;
-  return repositorio.save(notificacion);
+  return prisma.notificacion.update({
+    where: {
+      id: notificacion.id
+    },
+    data: {
+      leida: true
+    }
+  });
 };
 
 export const marcarTodasLeidas = async (usuarioId: string) => {
-  await repositorioNotificaciones().update(
-    {
-      usuario: {
-        id: usuarioId
-      },
+  await prisma.notificacion.updateMany({
+    where: {
+      usuarioId,
       leida: false
     },
-    {
+    data: {
       leida: true
     }
-  );
+  });
 
   return {
     message: 'Notificaciones marcadas como leidas'

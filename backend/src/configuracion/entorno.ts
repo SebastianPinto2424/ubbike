@@ -55,6 +55,20 @@ if (!contrasenaBaseDatos || contrasenaBaseDatos === 'ubbike' || contrasenaBaseDa
   throw new Error('DB_PASSWORD debe ser seguro y tener al menos 16 caracteres');
 }
 
+const construirUrlBaseDatos = () => {
+  if (process.env.DATABASE_URL) {
+    return process.env.DATABASE_URL;
+  }
+
+  const usuario = encodeURIComponent(process.env.DB_USER ?? 'ubbike');
+  const contrasena = encodeURIComponent(contrasenaBaseDatos);
+  const host = process.env.DB_HOST ?? 'localhost';
+  const puerto = convertirNumero(process.env.DB_PORT, 5432);
+  const nombre = encodeURIComponent(process.env.DB_NAME ?? 'ubbike');
+
+  return `postgresql://${usuario}:${contrasena}@${host}:${puerto}/${nombre}?schema=public`;
+};
+
 export const entorno = {
   ambiente,
   puerto: convertirNumero(process.env.PORT, 3000),
@@ -64,10 +78,7 @@ export const entorno = {
     usuario: process.env.DB_USER ?? 'ubbike',
     contrasena: contrasenaBaseDatos,
     nombre: process.env.DB_NAME ?? 'ubbike',
-    sincronizar: convertirBooleano(
-      process.env.DB_SYNCHRONIZE,
-      process.env.NODE_ENV !== 'production'
-    )
+    url: construirUrlBaseDatos()
   },
   jwt: {
     secreto: secretoJwt,

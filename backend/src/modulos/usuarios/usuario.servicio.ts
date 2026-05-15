@@ -1,11 +1,10 @@
 import { ErrorHttp } from '../../comun/errors/error-http';
-import { fuenteDatos } from '../../configuracion/base-datos';
+import { prisma } from '../../configuracion/prisma';
 import { registrarAuditoria } from '../auditoria/auditoria.servicio';
 import { crearNotificacion } from '../notificaciones/notificacion.servicio';
 import { TipoNotificacion } from '../notificaciones/tipo-notificacion';
 import { mapearUsuarioPublico } from './usuario.mapeador';
 import { RolUsuario } from './rol-usuario';
-import { Usuario } from './usuario.entidad';
 
 type DatosActualizarPermisos = {
   nombre?: string;
@@ -16,12 +15,10 @@ type DatosActualizarPermisos = {
   correoVerificado?: boolean;
 };
 
-const repositorioUsuarios = () => fuenteDatos.getRepository(Usuario);
-
 export const listarUsuarios = async () => {
-  const usuarios = await repositorioUsuarios().find({
-    order: {
-      creadoEn: 'DESC'
+  const usuarios = await prisma.usuario.findMany({
+    orderBy: {
+      creadoEn: 'desc'
     }
   });
 
@@ -33,8 +30,11 @@ export const actualizarPermisosUsuario = async (
   datos: DatosActualizarPermisos,
   actorUsuarioId?: string
 ) => {
-  const repositorio = repositorioUsuarios();
-  const usuario = await repositorio.findOneBy({ id: usuarioId });
+  const usuario = await prisma.usuario.findUnique({
+    where: {
+      id: usuarioId
+    }
+  });
 
   if (!usuario) {
     throw new ErrorHttp(404, 'Usuario no encontrado');
@@ -42,44 +42,65 @@ export const actualizarPermisosUsuario = async (
 
   let invalidarSesiones = false;
 
+  const datosActualizacion: {
+    nombre?: string;
+    correo?: string;
+    rut?: string | null;
+    rol?: RolUsuario;
+    cuentaActiva?: boolean;
+    correoVerificado?: boolean;
+    tokenVerificacionCorreo?: string | null;
+    tokenVerificacionCorreoExpiraEn?: Date | null;
+    versionSesion?: {
+      increment: number;
+    };
+  } = {};
+
   if (datos.rol !== undefined) {
     invalidarSesiones = invalidarSesiones || usuario.rol !== datos.rol;
-    usuario.rol = datos.rol;
+    datosActualizacion.rol = datos.rol;
   }
 
   if (datos.nombre !== undefined) {
-    usuario.nombre = datos.nombre;
+    datosActualizacion.nombre = datos.nombre;
   }
 
   if (datos.correo !== undefined) {
     const correoNormalizado = datos.correo.toLowerCase();
     invalidarSesiones = invalidarSesiones || usuario.correo !== correoNormalizado;
-    usuario.correo = correoNormalizado;
+    datosActualizacion.correo = correoNormalizado;
   }
 
   if (datos.rut !== undefined) {
-    usuario.rut = datos.rut || null;
+    datosActualizacion.rut = datos.rut || null;
   }
 
   if (datos.cuentaActiva !== undefined) {
     invalidarSesiones = invalidarSesiones || usuario.cuentaActiva !== datos.cuentaActiva;
-    usuario.cuentaActiva = datos.cuentaActiva;
+    datosActualizacion.cuentaActiva = datos.cuentaActiva;
   }
 
   if (datos.correoVerificado !== undefined) {
     invalidarSesiones = invalidarSesiones || usuario.correoVerificado !== datos.correoVerificado;
-    usuario.correoVerificado = datos.correoVerificado;
+    datosActualizacion.correoVerificado = datos.correoVerificado;
     if (datos.correoVerificado) {
-      usuario.tokenVerificacionCorreo = null;
-      usuario.tokenVerificacionCorreoExpiraEn = null;
+      datosActualizacion.tokenVerificacionCorreo = null;
+      datosActualizacion.tokenVerificacionCorreoExpiraEn = null;
     }
   }
 
   if (invalidarSesiones) {
-    usuario.versionSesion += 1;
+    datosActualizacion.versionSesion = {
+      increment: 1
+    };
   }
 
-  const usuarioGuardado = await repositorio.save(usuario);
+  const usuarioGuardado = await prisma.usuario.update({
+    where: {
+      id: usuario.id
+    },
+    data: datosActualizacion
+  });
 
   await crearNotificacion({
     usuarioId: usuarioGuardado.id,

@@ -42,7 +42,11 @@ rutasAutenticacion.post(
 );
 rutasAutenticacion.get(['/perfil', '/me'], middlewareAutenticacion, obtenerPerfil);
 rutasAutenticacion.get('/verificar-correo', verificarCorreo);
-rutasAutenticacion.post('/verificar-correo', validarCuerpo(esquemaVerificarCorreo), verificarCorreo);
+rutasAutenticacion.post(
+  '/verificar-correo',
+  validarCuerpo(esquemaVerificarCorreo),
+  verificarCorreo
+);
 rutasAutenticacion.post(
   '/solicitar-cambio-contrasena',
   limitarIntentos({

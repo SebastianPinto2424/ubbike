@@ -1,23 +1,28 @@
-import 'reflect-metadata';
 import { aplicacion } from './aplicacion';
-import { fuenteDatos } from './configuracion/base-datos';
 import { cargarDatosIniciales } from './configuracion/datos-iniciales';
-import { ejecutarMigraciones } from './configuracion/ejecutar-migraciones';
 import { entorno } from './configuracion/entorno';
-import { prepararCompatibilidadRoles } from './configuracion/migracion-roles';
+import { prisma } from './configuracion/prisma';
 
 const iniciarServidor = async (): Promise<void> => {
   try {
-    await prepararCompatibilidadRoles();
-    await ejecutarMigraciones();
-    await fuenteDatos.initialize();
+    await prisma.$connect();
     if (entorno.datosDemo.habilitados) {
       await cargarDatosIniciales();
     }
 
-    aplicacion.listen(entorno.puerto, () => {
+    const servidor = aplicacion.listen(entorno.puerto, () => {
       console.log(`UBBike backend escuchando en puerto ${entorno.puerto}`);
     });
+
+    const cerrar = async () => {
+      servidor.close(async () => {
+        await prisma.$disconnect();
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGINT', cerrar);
+    process.on('SIGTERM', cerrar);
   } catch (error) {
     console.error('No se pudo iniciar el backend de UBBike', error);
     process.exit(1);

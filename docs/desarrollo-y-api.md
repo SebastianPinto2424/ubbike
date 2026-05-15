@@ -99,7 +99,17 @@ Backend:
 ```bash
 cd backend
 npm install
+npm run migrate
 npm run dev
+```
+
+Si la base ya tenia tablas antes de Prisma y aparece `P3005`, aplique el baseline sin borrar datos:
+
+```powershell
+docker compose stop backend
+Get-Content -Raw backend\prisma\migrations\20260515123000_init\migration.sql | docker compose exec -T db psql -v ON_ERROR_STOP=1 -U ubbike -d ubbike
+docker compose run --rm --no-deps backend npx prisma migrate resolve --applied 20260515123000_init
+docker compose up -d
 ```
 
 Flutter:
@@ -123,6 +133,8 @@ Backend:
 
 ```bash
 cd backend
+npm run generate
+npx prisma validate
 npm run typecheck
 npm run build
 ```
@@ -157,4 +169,4 @@ El backend considera:
 - Notificaciones por usuario.
 - Auditoria de acciones relevantes.
 
-Los nombres de clases, modulos y funciones del backend se mantienen en espanol cuando no chocan con convenciones propias de Node, Express o TypeORM.
+Los nombres de modelos, modulos y funciones del backend se mantienen en espanol cuando no chocan con convenciones propias de Node, Express o Prisma.

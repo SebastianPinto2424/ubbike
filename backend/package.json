@@ -4,14 +4,15 @@
   "description": "Backend API REST para UBBike.",
   "main": "dist/servidor.js",
   "scripts": {
-    "dev": "tsx watch src/servidor.ts",
-    "build": "tsc",
+    "dev": "prisma generate && tsx watch src/servidor.ts",
+    "build": "prisma generate && tsc",
     "start": "node dist/servidor.js",
-    "migrate": "node dist/configuracion/ejecutar-migraciones.js",
-    "migrate:dev": "tsx src/configuracion/ejecutar-migraciones.ts",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint \"src/**/*.ts\"",
-    "format": "prettier --write \"src/**/*.ts\""
+    "generate": "prisma generate",
+    "migrate": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev",
+    "typecheck": "prisma generate && tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\" --ignore-pattern \"src/generated/**\"",
+    "format": "prettier --write \"src/**/*.ts\" \"!src/generated/**\""
   },
   "keywords": [
     "ubbike",
@@ -22,6 +23,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -32,9 +35,8 @@
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^8.0.7",
     "pg": "^8.13.1",
-    "redis": "^5.10.0",
-    "reflect-metadata": "^0.2.2",
-    "typeorm": "^0.3.20"
+    "prisma": "^7.8.0",
+    "redis": "^5.10.0"
   },
   "overrides": {
     "uuid": "14.0.0"

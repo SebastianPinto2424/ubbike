@@ -60,7 +60,6 @@ services:
       DB_USER: ${POSTGRES_USER:-ubbike}
       DB_NAME: ${POSTGRES_DB:-ubbike}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-ubbike_password_demo_2026}
-      DB_SYNCHRONIZE: "false"
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
       JWT_SECRET: ${JWT_SECRET:-ubbike_jwt_secret_demo_para_entrega_2026}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-2h}

@@ -1,8 +1,7 @@
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
-import jwt, { SignOptions } from 'jsonwebtoken';
 import { ErrorHttp } from '../../comun/errors/error-http';
 import { entorno } from '../../configuracion/entorno';
+import { prisma } from '../../configuracion/prisma';
 import { registrarAuditoria } from '../auditoria/auditoria.servicio';
 import {
   crearCorreoCambioContrasena,
@@ -15,8 +14,14 @@ import {
 } from '../notificaciones/notificacion.servicio';
 import { TipoNotificacion } from '../notificaciones/tipo-notificacion';
 import { mapearUsuarioPublico } from '../usuarios/usuario.mapeador';
-import { obtenerRepositorioUsuarios } from '../usuarios/usuario.repositorio';
 import { RolUsuario } from '../usuarios/rol-usuario';
+import {
+  crearTokenSeguro,
+  crearTokenSesion,
+  hashearToken,
+  horasExpiracionVerificacionCorreo,
+  resolverRolRegistrable
+} from './autenticacion.tokens';
 
 type DatosRegistro = {
   nombre: string;
@@ -30,39 +35,13 @@ type DatosLogin = {
   contrasena: string;
 };
 
-const crearTokenSeguro = (): string => crypto.randomBytes(32).toString('hex');
-const hashearToken = (token: string): string =>
-  crypto.createHash('sha256').update(token).digest('hex');
-const horasExpiracionVerificacionCorreo = 24;
-
-const crearToken = (usuarioId: string, rol: RolUsuario, versionSesion: number): string => {
-  const opcionesFirma: SignOptions = {
-    expiresIn: entorno.jwt.expiracion as SignOptions['expiresIn'],
-    issuer: entorno.jwt.emisor,
-    audience: entorno.jwt.audiencia
-  };
-
-  return jwt.sign({ usuarioId, rol, versionSesion }, entorno.jwt.secreto, opcionesFirma);
-};
-
-const resolverRolRegistrable = (correo: string): RolUsuario => {
-  if (correo.endsWith('@alumnos.ubiobio.cl')) {
-    return RolUsuario.ESTUDIANTE;
-  }
-
-  if (correo.endsWith('@ubiobio.cl')) {
-    return RolUsuario.FUNCIONARIO;
-  }
-
-  throw new ErrorHttp(400, 'Debes usar un correo institucional UBB valido');
-};
-
 export const registrarUsuario = async (datos: DatosRegistro) => {
-  const repositorioUsuarios = obtenerRepositorioUsuarios();
   const correoNormalizado = datos.correo.toLowerCase();
   const rolAsignado = resolverRolRegistrable(correoNormalizado);
-  const usuarioExistente = await repositorioUsuarios.findOneBy({
-    correo: correoNormalizado
+  const usuarioExistente = await prisma.usuario.findUnique({
+    where: {
+      correo: correoNormalizado
+    }
   });
 
   if (usuarioExistente) {
@@ -70,8 +49,10 @@ export const registrarUsuario = async (datos: DatosRegistro) => {
   }
 
   if (datos.rut) {
-    const rutExistente = await repositorioUsuarios.findOneBy({
-      rut: datos.rut
+    const rutExistente = await prisma.usuario.findUnique({
+      where: {
+        rut: datos.rut
+      }
     });
 
     if (rutExistente) {
@@ -81,21 +62,21 @@ export const registrarUsuario = async (datos: DatosRegistro) => {
 
   const contrasenaHash = await bcrypt.hash(datos.contrasena, 12);
   const tokenVerificacion = crearTokenSeguro();
-  const usuario = repositorioUsuarios.create({
-    nombre: datos.nombre,
-    correo: correoNormalizado,
-    rut: datos.rut ?? null,
-    rol: rolAsignado,
-    contrasenaHash,
-    cuentaActiva: true,
-    correoVerificado: false,
-    tokenVerificacionCorreo: hashearToken(tokenVerificacion),
-    tokenVerificacionCorreoExpiraEn: new Date(
-      Date.now() + 1000 * 60 * 60 * horasExpiracionVerificacionCorreo
-    )
+  const usuarioGuardado = await prisma.usuario.create({
+    data: {
+      nombre: datos.nombre,
+      correo: correoNormalizado,
+      rut: datos.rut ?? null,
+      rol: rolAsignado,
+      contrasenaHash,
+      cuentaActiva: true,
+      correoVerificado: false,
+      tokenVerificacionCorreo: hashearToken(tokenVerificacion),
+      tokenVerificacionCorreoExpiraEn: new Date(
+        Date.now() + 1000 * 60 * 60 * horasExpiracionVerificacionCorreo
+      )
+    }
   });
-
-  const usuarioGuardado = await repositorioUsuarios.save(usuario);
   const enlace = `${entorno.app.urlFrontend}/#/verificar-correo?token=${tokenVerificacion}`;
   const correo = crearCorreoVerificacion(usuarioGuardado.nombre, enlace);
 
@@ -132,9 +113,10 @@ export const registrarUsuario = async (datos: DatosRegistro) => {
 };
 
 export const iniciarSesion = async (datos: DatosLogin) => {
-  const repositorioUsuarios = obtenerRepositorioUsuarios();
-  const usuario = await repositorioUsuarios.findOneBy({
-    correo: datos.correo.toLowerCase()
+  const usuario = await prisma.usuario.findUnique({
+    where: {
+      correo: datos.correo.toLowerCase()
+    }
   });
 
   if (!usuario) {
@@ -193,13 +175,16 @@ export const iniciarSesion = async (datos: DatosLogin) => {
 
   return {
     usuario: mapearUsuarioPublico(usuario),
-    token: crearToken(usuario.id, usuario.rol, usuario.versionSesion)
+    token: crearTokenSesion(usuario.id, usuario.rol, usuario.versionSesion)
   };
 };
 
 export const obtenerUsuarioActual = async (usuarioId: string) => {
-  const repositorioUsuarios = obtenerRepositorioUsuarios();
-  const usuario = await repositorioUsuarios.findOneBy({ id: usuarioId });
+  const usuario = await prisma.usuario.findUnique({
+    where: {
+      id: usuarioId
+    }
+  });
 
   if (!usuario) {
     throw new ErrorHttp(404, 'Usuario no encontrado');
@@ -209,9 +194,10 @@ export const obtenerUsuarioActual = async (usuarioId: string) => {
 };
 
 export const verificarCorreo = async (token: string) => {
-  const repositorioUsuarios = obtenerRepositorioUsuarios();
-  const usuario = await repositorioUsuarios.findOneBy({
-    tokenVerificacionCorreo: hashearToken(token)
+  const usuario = await prisma.usuario.findFirst({
+    where: {
+      tokenVerificacionCorreo: hashearToken(token)
+    }
   });
 
   if (!usuario) {
@@ -222,16 +208,28 @@ export const verificarCorreo = async (token: string) => {
     !usuario.tokenVerificacionCorreoExpiraEn ||
     usuario.tokenVerificacionCorreoExpiraEn.getTime() < Date.now()
   ) {
-    usuario.tokenVerificacionCorreo = null;
-    usuario.tokenVerificacionCorreoExpiraEn = null;
-    await repositorioUsuarios.save(usuario);
+    await prisma.usuario.update({
+      where: {
+        id: usuario.id
+      },
+      data: {
+        tokenVerificacionCorreo: null,
+        tokenVerificacionCorreoExpiraEn: null
+      }
+    });
     throw new ErrorHttp(400, 'Token de verificacion expirado. Solicita un nuevo registro.');
   }
 
-  usuario.correoVerificado = true;
-  usuario.tokenVerificacionCorreo = null;
-  usuario.tokenVerificacionCorreoExpiraEn = null;
-  const usuarioGuardado = await repositorioUsuarios.save(usuario);
+  const usuarioGuardado = await prisma.usuario.update({
+    where: {
+      id: usuario.id
+    },
+    data: {
+      correoVerificado: true,
+      tokenVerificacionCorreo: null,
+      tokenVerificacionCorreoExpiraEn: null
+    }
+  });
 
   await crearNotificacion({
     usuarioId: usuarioGuardado.id,
@@ -254,9 +252,10 @@ export const verificarCorreo = async (token: string) => {
 };
 
 export const solicitarCambioContrasena = async (correo: string) => {
-  const repositorioUsuarios = obtenerRepositorioUsuarios();
-  const usuario = await repositorioUsuarios.findOneBy({
-    correo: correo.toLowerCase()
+  const usuario = await prisma.usuario.findUnique({
+    where: {
+      correo: correo.toLowerCase()
+    }
   });
 
   if (!usuario) {
@@ -266,32 +265,38 @@ export const solicitarCambioContrasena = async (correo: string) => {
   }
 
   const tokenCambioContrasena = crearTokenSeguro();
-  usuario.tokenCambioContrasena = hashearToken(tokenCambioContrasena);
-  usuario.tokenCambioContrasenaExpiraEn = new Date(Date.now() + 1000 * 60 * 30);
-  await repositorioUsuarios.save(usuario);
+  const usuarioActualizado = await prisma.usuario.update({
+    where: {
+      id: usuario.id
+    },
+    data: {
+      tokenCambioContrasena: hashearToken(tokenCambioContrasena),
+      tokenCambioContrasenaExpiraEn: new Date(Date.now() + 1000 * 60 * 30)
+    }
+  });
 
   const enlace = `${entorno.app.urlFrontend}/#/cambiar-contrasena?token=${tokenCambioContrasena}`;
-  const correoCambio = crearCorreoCambioContrasena(usuario.nombre, enlace);
+  const correoCambio = crearCorreoCambioContrasena(usuarioActualizado.nombre, enlace);
 
   await enviarCorreo({
-    para: usuario.correo,
+    para: usuarioActualizado.correo,
     asunto: correoCambio.asunto,
     texto: correoCambio.texto,
     html: correoCambio.html
   });
 
   await crearNotificacion({
-    usuarioId: usuario.id,
+    usuarioId: usuarioActualizado.id,
     titulo: 'Solicitud de cambio de contrasena',
     mensaje: 'Se envio un enlace seguro a tu correo institucional.',
     tipo: TipoNotificacion.CUENTA
   });
 
   await registrarAuditoria({
-    actorUsuarioId: usuario.id,
+    actorUsuarioId: usuarioActualizado.id,
     accion: 'CAMBIO_CONTRASENA_SOLICITADO',
     entidad: 'usuarios',
-    entidadId: usuario.id
+    entidadId: usuarioActualizado.id
   });
 
   return {
@@ -300,9 +305,10 @@ export const solicitarCambioContrasena = async (correo: string) => {
 };
 
 export const cambiarContrasena = async (token: string, contrasena: string) => {
-  const repositorioUsuarios = obtenerRepositorioUsuarios();
-  const usuario = await repositorioUsuarios.findOneBy({
-    tokenCambioContrasena: hashearToken(token)
+  const usuario = await prisma.usuario.findFirst({
+    where: {
+      tokenCambioContrasena: hashearToken(token)
+    }
   });
 
   if (!usuario || !usuario.tokenCambioContrasenaExpiraEn) {
@@ -313,11 +319,19 @@ export const cambiarContrasena = async (token: string, contrasena: string) => {
     throw new ErrorHttp(400, 'Token de cambio de contrasena expirado');
   }
 
-  usuario.contrasenaHash = await bcrypt.hash(contrasena, 12);
-  usuario.tokenCambioContrasena = null;
-  usuario.tokenCambioContrasenaExpiraEn = null;
-  usuario.versionSesion += 1;
-  await repositorioUsuarios.save(usuario);
+  await prisma.usuario.update({
+    where: {
+      id: usuario.id
+    },
+    data: {
+      contrasenaHash: await bcrypt.hash(contrasena, 12),
+      tokenCambioContrasena: null,
+      tokenCambioContrasenaExpiraEn: null,
+      versionSesion: {
+        increment: 1
+      }
+    }
+  });
 
   await crearNotificacion({
     usuarioId: usuario.id,

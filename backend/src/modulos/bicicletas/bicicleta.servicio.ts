@@ -1,7 +1,6 @@
 import { ErrorHttp } from '../../comun/errors/error-http';
-import { fuenteDatos } from '../../configuracion/base-datos';
-import { Usuario } from '../usuarios/usuario.entidad';
-import { Bicicleta } from './bicicleta.entidad';
+import { prisma } from '../../configuracion/prisma';
+import type { Bicicleta } from '../../generated/prisma/client';
 
 type DatosCrearBicicleta = {
   usuarioId: string;
@@ -25,9 +24,9 @@ type DatosActualizarBicicleta = {
   fotoUrl?: string | null;
 };
 
-const repositorioBicicletas = () => fuenteDatos.getRepository(Bicicleta);
-
-const mapearBicicleta = (bicicleta: Bicicleta) => ({
+const mapearBicicleta = (
+  bicicleta: Bicicleta & { bicicleteroActual?: { id: string; nombre: string } | null }
+) => ({
   id: bicicleta.id,
   descripcion: bicicleta.descripcion,
   marca: bicicleta.marca,
@@ -49,16 +48,19 @@ const mapearBicicleta = (bicicleta: Bicicleta) => ({
 });
 
 const buscarBicicletaUsuario = async (usuarioId: string, bicicletaId: string) => {
-  const bicicleta = await repositorioBicicletas().findOne({
+  const bicicleta = await prisma.bicicleta.findFirst({
     where: {
       id: bicicletaId,
-      usuario: {
-        id: usuarioId
-      }
+      usuarioId,
+      eliminadoEn: null
     },
-    relations: {
-      usuario: true,
-      bicicleteroActual: true
+    include: {
+      bicicleteroActual: {
+        select: {
+          id: true,
+          nombre: true
+        }
+      }
     }
   });
 
@@ -70,36 +72,43 @@ const buscarBicicletaUsuario = async (usuarioId: string, bicicletaId: string) =>
 };
 
 const dejarSoloActiva = async (usuarioId: string, bicicletaId: string) => {
-  await repositorioBicicletas()
-    .createQueryBuilder()
-    .update(Bicicleta)
-    .set({ activa: false })
-    .where('usuario_id = :usuarioId', { usuarioId })
-    .execute();
+  await prisma.bicicleta.updateMany({
+    where: {
+      usuarioId,
+      eliminadoEn: null
+    },
+    data: {
+      activa: false
+    }
+  });
 
-  await repositorioBicicletas().update(
-    {
+  await prisma.bicicleta.update({
+    where: {
       id: bicicletaId
     },
-    {
+    data: {
       activa: true
     }
-  );
+  });
 };
 
 export const listarBicicletasUsuario = async (usuarioId: string) => {
-  const bicicletas = await repositorioBicicletas().find({
+  const bicicletas = await prisma.bicicleta.findMany({
     where: {
-      usuario: {
-        id: usuarioId
+      usuarioId,
+      eliminadoEn: null
+    },
+    include: {
+      bicicleteroActual: {
+        select: {
+          id: true,
+          nombre: true
+        }
       }
     },
-    relations: {
-      bicicleteroActual: true
-    },
-    order: {
-      activa: 'DESC',
-      actualizadoEn: 'DESC'
+    orderBy: {
+      activa: 'desc',
+      actualizadoEn: 'desc'
     }
   });
 
@@ -107,15 +116,19 @@ export const listarBicicletasUsuario = async (usuarioId: string) => {
 };
 
 export const obtenerBicicletaActivaUsuario = async (usuarioId: string) => {
-  const bicicleta = await repositorioBicicletas().findOne({
+  const bicicleta = await prisma.bicicleta.findFirst({
     where: {
-      usuario: {
-        id: usuarioId
-      },
-      activa: true
+      usuarioId,
+      activa: true,
+      eliminadoEn: null
     },
-    relations: {
-      bicicleteroActual: true
+    include: {
+      bicicleteroActual: {
+        select: {
+          id: true,
+          nombre: true
+        }
+      }
     }
   });
 
@@ -123,29 +136,28 @@ export const obtenerBicicletaActivaUsuario = async (usuarioId: string) => {
 };
 
 export const crearBicicleta = async (datos: DatosCrearBicicleta) => {
-  const totalBicicletas = await repositorioBicicletas().count({
+  const totalBicicletas = await prisma.bicicleta.count({
     where: {
-      usuario: {
-        id: datos.usuarioId
-      }
+      usuarioId: datos.usuarioId,
+      eliminadoEn: null
     }
   });
 
-  const bicicleta = repositorioBicicletas().create({
-    usuario: { id: datos.usuarioId } as Usuario,
-    descripcion: datos.descripcion,
-    marca: datos.marca || null,
-    modelo: datos.modelo || null,
-    color: datos.color || null,
-    aro: datos.aro || null,
-    numeroSerie: datos.numeroSerie || null,
-    fotoUrl: datos.fotoUrl || null,
-    activa: totalBicicletas === 0 || datos.activar === true,
-    dentroBicicletero: false,
-    bicicleteroActual: null
+  const guardada = await prisma.bicicleta.create({
+    data: {
+      usuarioId: datos.usuarioId,
+      descripcion: datos.descripcion,
+      marca: datos.marca || null,
+      modelo: datos.modelo || null,
+      color: datos.color || null,
+      aro: datos.aro || null,
+      numeroSerie: datos.numeroSerie || null,
+      fotoUrl: datos.fotoUrl || null,
+      activa: totalBicicletas === 0 || datos.activar === true,
+      dentroBicicletero: false,
+      bicicleteroActualId: null
+    }
   });
-
-  const guardada = await repositorioBicicletas().save(bicicleta);
 
   if (guardada.activa) {
     await dejarSoloActiva(datos.usuarioId, guardada.id);
@@ -190,7 +202,28 @@ export const actualizarBicicleta = async (
     bicicleta.fotoUrl = datos.fotoUrl || null;
   }
 
-  const guardada = await repositorioBicicletas().save(bicicleta);
+  const guardada = await prisma.bicicleta.update({
+    where: {
+      id: bicicleta.id
+    },
+    data: {
+      descripcion: bicicleta.descripcion,
+      marca: bicicleta.marca,
+      modelo: bicicleta.modelo,
+      color: bicicleta.color,
+      aro: bicicleta.aro,
+      numeroSerie: bicicleta.numeroSerie,
+      fotoUrl: bicicleta.fotoUrl
+    },
+    include: {
+      bicicleteroActual: {
+        select: {
+          id: true,
+          nombre: true
+        }
+      }
+    }
+  });
   return mapearBicicleta(guardada);
 };
 
@@ -198,18 +231,25 @@ export const eliminarBicicleta = async (usuarioId: string, bicicletaId: string) 
   const bicicleta = await buscarBicicletaUsuario(usuarioId, bicicletaId);
   const estabaActiva = bicicleta.activa;
 
-  // Soft delete para mantener historial/auditoria
-  await repositorioBicicletas().softRemove(bicicleta);
+  // Soft delete para mantener historial/auditoria.
+  await prisma.bicicleta.update({
+    where: {
+      id: bicicleta.id
+    },
+    data: {
+      eliminadoEn: new Date(),
+      activa: false
+    }
+  });
 
   if (estabaActiva) {
-    const siguiente = await repositorioBicicletas().findOne({
+    const siguiente = await prisma.bicicleta.findFirst({
       where: {
-        usuario: {
-          id: usuarioId
-        }
+        usuarioId,
+        eliminadoEn: null
       },
-      order: {
-        actualizadoEn: 'DESC'
+      orderBy: {
+        actualizadoEn: 'desc'
       }
     });
 
@@ -232,7 +272,21 @@ export const activarBicicleta = async (usuarioId: string, bicicletaId: string) =
 
 export const desactivarBicicleta = async (usuarioId: string, bicicletaId: string) => {
   const bicicleta = await buscarBicicletaUsuario(usuarioId, bicicletaId);
-  bicicleta.activa = false;
-  const guardada = await repositorioBicicletas().save(bicicleta);
+  const guardada = await prisma.bicicleta.update({
+    where: {
+      id: bicicleta.id
+    },
+    data: {
+      activa: false
+    },
+    include: {
+      bicicleteroActual: {
+        select: {
+          id: true,
+          nombre: true
+        }
+      }
+    }
+  });
   return mapearBicicleta(guardada);
 };

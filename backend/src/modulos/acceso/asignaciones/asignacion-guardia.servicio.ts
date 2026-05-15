@@ -1,24 +1,16 @@
-﻿import { ErrorHttp } from '../../../comun/errors/error-http';
-import { fuenteDatos } from '../../../configuracion/base-datos';
+import { ErrorHttp } from '../../../comun/errors/error-http';
+import { prisma } from '../../../configuracion/prisma';
+import type { AsignacionGuardia, Bicicletero } from '../../../generated/prisma/client';
 import { registrarAuditoria } from '../../auditoria/auditoria.servicio';
-import { Bicicleta } from '../../bicicletas/bicicleta.entidad';
-import { Bicicletero } from '../../bicicleteros/bicicletero.entidad';
 import { crearNotificacion } from '../../notificaciones/notificacion.servicio';
 import { TipoNotificacion } from '../../notificaciones/tipo-notificacion';
-import { Usuario } from '../../usuarios/usuario.entidad';
-import { AsignacionGuardia } from '../asignaciones/asignacion-guardia.entidad';
-
-const repoAsignaciones = () => fuenteDatos.getRepository(AsignacionGuardia);
-const repoBicicleteros = () => fuenteDatos.getRepository(Bicicletero);
-const repoBicicletas = () => fuenteDatos.getRepository(Bicicleta);
 
 const mapearBicicletero = async (bicicletero: Bicicletero) => {
-  const ocupados = await repoBicicletas().count({
+  const ocupados = await prisma.bicicleta.count({
     where: {
       dentroBicicletero: true,
-      bicicleteroActual: {
-        id: bicicletero.id
-      }
+      bicicleteroActualId: bicicletero.id,
+      eliminadoEn: null
     }
   });
   const capacidad = Math.max(bicicletero.capacidad, 1);
@@ -34,23 +26,23 @@ const mapearBicicletero = async (bicicletero: Bicicletero) => {
   };
 };
 
-const mapearAsignacion = async (asignacion: AsignacionGuardia) => ({
+const mapearAsignacion = async (asignacion: AsignacionGuardia & { bicicletero: Bicicletero }) => ({
   id: asignacion.id,
   iniciaEn: asignacion.iniciaEn,
   bicicletero: await mapearBicicletero(asignacion.bicicletero)
 });
 
 export const obtenerAsignacionActivaGuardia = async (guardiaId: string) => {
-  const asignacion = await repoAsignaciones().findOne({
+  const asignacion = await prisma.asignacionGuardia.findFirst({
     where: {
-      guardia: { id: guardiaId },
+      guardiaId,
       activa: true
     },
-    relations: {
+    include: {
       bicicletero: true
     },
-    order: {
-      iniciaEn: 'DESC'
+    orderBy: {
+      iniciaEn: 'desc'
     }
   });
 
@@ -58,61 +50,73 @@ export const obtenerAsignacionActivaGuardia = async (guardiaId: string) => {
 };
 
 export const seleccionarBicicleteroGuardia = async (guardiaId: string, bicicleteroId: string) => {
-  const bicicletero = await repoBicicleteros().findOne({
-    where: {
-      id: bicicleteroId,
-      activo: true
+  const resultado = await prisma.$transaction(async (db) => {
+    const bicicletero = await db.bicicletero.findFirst({
+      where: {
+        id: bicicleteroId,
+        activo: true
+      }
+    });
+
+    if (!bicicletero) {
+      throw new ErrorHttp(404, 'Bicicletero no encontrado o inactivo');
     }
+
+    const ahora = new Date();
+
+    await db.asignacionGuardia.updateMany({
+      where: {
+        guardiaId,
+        activa: true
+      },
+      data: {
+        activa: false,
+        terminaEn: ahora
+      }
+    });
+
+    const asignacion = await db.asignacionGuardia.create({
+      data: {
+        guardiaId,
+        bicicleteroId: bicicletero.id,
+        iniciaEn: ahora,
+        terminaEn: null,
+        activa: true
+      }
+    });
+
+    await registrarAuditoria(
+      {
+        actorUsuarioId: guardiaId,
+        accion: 'GUARDIA_BICICLETERO_SELECCIONADO',
+        entidad: 'asignaciones_guardias',
+        entidadId: asignacion.id,
+        datos: {
+          bicicleteroId: bicicletero.id
+        }
+      },
+      db
+    );
+
+    await crearNotificacion(
+      {
+        usuarioId: guardiaId,
+        titulo: 'Bicicletero de turno actualizado',
+        mensaje: `Ahora gestionas ${bicicletero.nombre}.`,
+        tipo: TipoNotificacion.SISTEMA,
+        datos: {
+          bicicleteroId: bicicletero.id,
+          asignacionId: asignacion.id
+        }
+      },
+      db
+    );
+
+    return {
+      ...asignacion,
+      bicicletero
+    };
   });
 
-  if (!bicicletero) {
-    throw new ErrorHttp(404, 'Bicicletero no encontrado o inactivo');
-  }
-
-  const ahora = new Date();
-
-  await repoAsignaciones()
-    .createQueryBuilder()
-    .update(AsignacionGuardia)
-    .set({
-      activa: false,
-      terminaEn: ahora
-    })
-    .where('guardia_id = :guardiaId', { guardiaId })
-    .andWhere('activa = true')
-    .execute();
-
-  const asignacion = await repoAsignaciones().save(
-    repoAsignaciones().create({
-      guardia: { id: guardiaId } as Usuario,
-      bicicletero,
-      iniciaEn: ahora,
-      terminaEn: null,
-      activa: true
-    })
-  );
-
-  await registrarAuditoria({
-    actorUsuarioId: guardiaId,
-    accion: 'GUARDIA_BICICLETERO_SELECCIONADO',
-    entidad: 'asignaciones_guardias',
-    entidadId: asignacion.id,
-    datos: {
-      bicicleteroId: bicicletero.id
-    }
-  });
-
-  await crearNotificacion({
-    usuarioId: guardiaId,
-    titulo: 'Bicicletero de turno actualizado',
-    mensaje: `Ahora gestionas ${bicicletero.nombre}.`,
-    tipo: TipoNotificacion.SISTEMA,
-    datos: {
-      bicicleteroId: bicicletero.id,
-      asignacionId: asignacion.id
-    }
-  });
-
-  asignacion.bicicletero = bicicletero;
-  return mapearAsignacion(asignacion);
+  return mapearAsignacion(resultado);
 };

@@ -1,18 +1,8 @@
 # Modelo Relacional UBBike
 
-Este documento resume el MR del sistema. La fuente tecnica esta en las
-entidades TypeORM del backend:
-
-- `backend/src/modulos/usuarios/usuario.entidad.ts`
-- `backend/src/modulos/bicicletas/bicicleta.entidad.ts`
-- `backend/src/modulos/bicicleteros/bicicletero.entidad.ts`
-- `backend/src/modulos/historial/movimiento.entidad.ts`
-- `backend/src/modulos/qr/codigo-qr-temporal.entidad.ts`
-- `backend/src/modulos/acceso/asignacion-guardia.entidad.ts`
-- `backend/src/modulos/acceso/solicitud-guardia.entidad.ts`
-- `backend/src/modulos/notificaciones/notificacion.entidad.ts`
-- `backend/src/modulos/incidencias/incidencia.entidad.ts`
-- `backend/src/modulos/auditoria/auditoria.entidad.ts`
+Este documento resume el MR del sistema. La fuente tecnica del esquema esta en
+`backend/prisma/schema.prisma`, con migraciones versionadas en
+`backend/prisma/migrations`.
 
 ## Diagrama ER
 

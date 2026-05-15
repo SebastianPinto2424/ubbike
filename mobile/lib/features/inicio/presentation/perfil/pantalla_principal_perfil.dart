@@ -1,4 +1,4 @@
-part of 'pantalla_principal.dart';
+part of '../pantalla_principal.dart';
 
 class VistaPerfil extends StatelessWidget {
   const VistaPerfil({super.key, required this.rol});
@@ -38,10 +38,11 @@ class VistaPerfil extends StatelessWidget {
         const SizedBox(height: 24),
         Card(
           elevation: 4,
-          shadowColor: Colors.black.withOpacity(0.05),
+          shadowColor: Colors.black.withValues(alpha: 0.05),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
-            side: BorderSide(color: Colors.grey.withOpacity(0.1), width: 1),
+            side:
+                BorderSide(color: Colors.grey.withValues(alpha: 0.1), width: 1),
           ),
           color: Colors.white,
           child: Padding(
@@ -55,14 +56,14 @@ class VistaPerfil extends StatelessWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: ColoresUbb.azulApp.withOpacity(0.2),
+                          color: ColoresUbb.azulApp.withValues(alpha: 0.2),
                           blurRadius: 16,
                           spreadRadius: 2,
                           offset: const Offset(0, 4),
                         ),
                       ],
                       border: Border.all(
-                        color: ColoresUbb.azulApp.withOpacity(0.3),
+                        color: ColoresUbb.azulApp.withValues(alpha: 0.3),
                         width: 3,
                       ),
                     ),
@@ -99,7 +100,7 @@ class VistaPerfil extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: ColoresUbb.azulApp.withOpacity(0.1),
+                      color: ColoresUbb.azulApp.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(99),
                     ),
                     child: Text(
@@ -123,7 +124,7 @@ class VistaPerfil extends StatelessWidget {
                     valor: rutPerfil,
                     icono: Icons.badge_outlined),
                 const SizedBox(height: 12),
-                _DatoPerfilBox(
+                const _DatoPerfilBox(
                     etiqueta: 'Estado',
                     valor: 'Correo verificado',
                     icono: Icons.verified_user_outlined),
@@ -137,7 +138,7 @@ class VistaPerfil extends StatelessWidget {
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: ColoresUbb.azulApp.withOpacity(0.1),
+                    backgroundColor: ColoresUbb.azulApp.withValues(alpha: 0.1),
                     elevation: 0,
                     shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(
@@ -183,7 +184,7 @@ class VistaPerfil extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor:
-                        ColoresUbb.rojoInstitucional.withOpacity(0.1),
+                        ColoresUbb.rojoInstitucional.withValues(alpha: 0.1),
                     elevation: 0,
                     shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(
@@ -234,7 +235,7 @@ class _DatoPerfilBox extends StatelessWidget {
         color: ColoresUbb.superficieAzulSuave, // Fondo de componente
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-            color: ColoresUbb.azulApp.withOpacity(0.08)), // Borde sutil
+            color: ColoresUbb.azulApp.withValues(alpha: 0.08)), // Borde sutil
       ),
       child: Row(
         children: [
@@ -245,7 +246,7 @@ class _DatoPerfilBox extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
+                    color: Colors.black.withValues(alpha: 0.02),
                     blurRadius: 4,
                     spreadRadius: 1),
               ],

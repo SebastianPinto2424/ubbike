@@ -4,7 +4,7 @@ Aplicacion web/mobile y API REST para gestionar el registro de bicicletas, el in
 
 ## Estructura del proyecto
 
-- `backend/`: API REST con Node.js, Express, TypeORM, PostgreSQL y Redis.
+- `backend/`: API REST con Node.js, Express, Prisma, PostgreSQL y Redis.
 - `mobile/`: aplicacion Flutter Web/Mobile con vistas por rol.
 - `docs/`: documentacion tecnica, modelo relacional y notas de produccion.
 
@@ -145,13 +145,26 @@ docker compose logs -f backend
 docker compose logs -f frontend
 ```
 
+### Base de datos existente y Prisma
+
+Si se migra una base ya creada antes de Prisma, no elimine el volumen para "arreglar" el error `P3005`.
+Primero aplique el SQL idempotente y luego registre la migracion inicial como aplicada:
+
+```powershell
+docker compose stop backend
+Get-Content -Raw backend\prisma\migrations\20260515123000_init\migration.sql | docker compose exec -T db psql -v ON_ERROR_STOP=1 -U ubbike -d ubbike
+docker compose run --rm --no-deps backend npx prisma migrate resolve --applied 20260515123000_init
+docker compose up -d
+```
+
+Use `docker compose down -v` solo cuando quiera borrar completamente los datos locales.
+
 ## Seguridad local
 
 El proyecto queda preparado con una configuracion segura base:
 
 - Backend en `NODE_ENV=production`.
-- Migraciones versionadas al iniciar.
-- `DB_SYNCHRONIZE=false`.
+- Migraciones versionadas con Prisma Migrate.
 - Backend ejecutado como usuario no root.
 - Contenedores con `read_only`, `tmpfs`, `cap_drop` y `no-new-privileges`.
 - Puertos publicados solo en `127.0.0.1` en entorno local.

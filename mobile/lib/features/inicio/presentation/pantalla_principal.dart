@@ -16,7 +16,7 @@ import '../../../features/auth/presentation/pantalla_login.dart';
 import '../../../features/bicicletas/data/bicicleta_api.dart';
 import '../../../features/acceso/data/acceso_api.dart';
 import '../../../features/historial/data/historial_api.dart';
-import '../../../features/notificaciones/data/notificacion_api.dart';
+import '../../../features/inicio/application/controlador_notificaciones_inicio.dart';
 import '../../../features/notificaciones/presentation/pantalla_notificaciones.dart';
 import '../../../features/qr/data/qr_api.dart';
 import '../../../shared/modelos/bicicleta_app.dart';
@@ -29,11 +29,29 @@ import '../../../shared/widgets/contenedor_responsivo.dart';
 import '../../../shared/widgets/marca_ubbike.dart';
 import '../../../shared/widgets/tarjeta_accion.dart';
 
-part 'pantalla_principal_usuario.dart';
-part 'pantalla_principal_guardia.dart';
-part 'pantalla_principal_central.dart';
-part 'pantalla_principal_perfil.dart';
-part 'pantalla_principal_componentes.dart';
+part 'usuario/vista_inicio_usuario.dart';
+part 'usuario/vista_bicicletas_usuario.dart';
+part 'usuario/formulario_bicicleta_usuario.dart';
+part 'usuario/vista_movimientos_usuario.dart';
+part 'usuario/vista_qr_usuario.dart';
+part 'usuario/vista_solicitar_guardia.dart';
+part 'guardia/vista_inicio_guardia.dart';
+part 'guardia/vista_escaner_qr_guardia.dart';
+part 'guardia/vista_gestion_manual_guardia.dart';
+part 'guardia/vista_alertas_guardia.dart';
+part 'central/vista_dashboard_central.dart';
+part 'central/vista_movimientos_central.dart';
+part 'central/vista_operaciones_guardias_central.dart';
+part 'central/vista_solicitudes_central.dart';
+part 'perfil/pantalla_principal_perfil.dart';
+part 'widgets/bicicletas_widgets.dart';
+part 'widgets/qr_widgets.dart';
+part 'widgets/estado_widgets.dart';
+part 'widgets/bicicletero_widgets.dart';
+part 'widgets/solicitud_guardia_widgets.dart';
+part 'widgets/central_widgets.dart';
+part 'widgets/encabezado_widgets.dart';
+part 'widgets/qr_demostracion.dart';
 
 const int _maxFotoDataUrlLength = 1400000;
 const Set<String> _mimesFotoPermitidos = {
@@ -91,36 +109,24 @@ class PantallaPrincipal extends StatefulWidget {
 
 class _PantallaPrincipalState extends State<PantallaPrincipal> {
   int indice = 0;
-  final notificacionApi = NotificacionApi();
-  Timer? temporizadorNotificaciones;
-  Set<String> notificacionesConocidas = {};
-  int notificacionesNoLeidas = 0;
-  bool notificacionesInicializadas = false;
+  final controladorNotificaciones = ControladorNotificacionesInicio();
 
   @override
   void initState() {
     super.initState();
-    _actualizarNotificaciones();
-    temporizadorNotificaciones = Timer.periodic(
-      const Duration(seconds: 20),
-      (_) => _actualizarNotificaciones(avisarNuevas: true),
-    );
+    controladorNotificaciones.addListener(_sincronizarNotificaciones);
+    controladorNotificaciones.iniciar();
   }
 
   @override
   void dispose() {
-    temporizadorNotificaciones?.cancel();
+    controladorNotificaciones.removeListener(_sincronizarNotificaciones);
+    controladorNotificaciones.dispose();
     super.dispose();
   }
 
   Future<void> _abrirNotificaciones() async {
-    // Limpiamos los numeros de forma local de inmediato
-    setState(() {
-      notificacionesNoLeidas = 0;
-    });
-
-    // Marcamos todas leidas en backend en segundo plano
-    notificacionApi.marcarTodasLeidas().catchError((_) {});
+    controladorNotificaciones.marcarTodasLeidas();
 
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -129,55 +135,35 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
     );
 
     if (mounted) {
-      await _actualizarNotificaciones();
+      await controladorNotificaciones.actualizar();
     }
   }
 
-  Future<void> _actualizarNotificaciones({bool avisarNuevas = false}) async {
-    try {
-      final notificaciones = await notificacionApi.listar();
-      if (!mounted) {
-        return;
-      }
-
-      final nuevas = notificaciones
-          .where(
-            (notificacion) =>
-                !notificacion.leida &&
-                !notificacionesConocidas.contains(notificacion.id),
-          )
-          .toList();
-      final ids = notificaciones.map((notificacion) => notificacion.id).toSet();
-      final totalNoLeidas =
-          notificaciones.where((notificacion) => !notificacion.leida).length;
-      final debeAvisar =
-          avisarNuevas && notificacionesInicializadas && nuevas.isNotEmpty;
-
-      setState(() {
-        notificacionesConocidas = ids;
-        notificacionesNoLeidas = totalNoLeidas;
-        notificacionesInicializadas = true;
-      });
-
-      if (debeAvisar && mounted) {
-        final primera = nuevas.first;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Nueva notificacion: ${primera.titulo}'),
-            action: SnackBarAction(
-              label: 'Ver',
-              onPressed: _abrirNotificaciones,
-            ),
-          ),
-        );
-      }
-    } catch (_) {
-      // La pantalla principal no debe bloquearse si falla el polling.
+  void _sincronizarNotificaciones() {
+    if (!mounted) {
+      return;
     }
+
+    setState(() {});
+    final nueva = controladorNotificaciones.nuevaNotificacion;
+    if (nueva == null) {
+      return;
+    }
+
+    controladorNotificaciones.marcarNuevaNotificacionMostrada();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Nueva notificacion: ${nueva.titulo}'),
+        action: SnackBarAction(
+          label: 'Ver',
+          onPressed: _abrirNotificaciones,
+        ),
+      ),
+    );
   }
 
   Widget _iconoNotificaciones() {
-    final cantidad = notificacionesNoLeidas;
+    final cantidad = controladorNotificaciones.noLeidas;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -252,7 +238,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: ColoresUbb.azulApp.withOpacity(0.3),
+                  color: ColoresUbb.azulApp.withValues(alpha: 0.3),
                   blurRadius: 6,
                   offset: const Offset(0, 3),
                 ),
@@ -318,7 +304,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: ColoresUbb.azulApp.withOpacity(0.3),
+                color: ColoresUbb.azulApp.withValues(alpha: 0.3),
                 blurRadius: 6,
                 offset: const Offset(0, 3),
               ),

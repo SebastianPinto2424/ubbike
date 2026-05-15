@@ -1,5 +1,5 @@
-import { NextFunction, Request, Response } from 'express';
 import { SolicitudAutenticada } from '../../comun/middlewares/autenticacion.middleware';
+import { controladorAsync } from '../../comun/utils/controlador-async';
 import {
   cambiarContrasena as cambiarContrasenaServicio,
   iniciarSesion as iniciarSesionServicio,
@@ -9,65 +9,33 @@ import {
   verificarCorreo as verificarCorreoServicio
 } from './autenticacion.servicio';
 
-export const registrar = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const resultado = await registrarUsuario(req.body);
-    return res.status(201).json(resultado);
-  } catch (error) {
-    return next(error);
-  }
-};
+export const registrar = controladorAsync(async (req, res) => {
+  const resultado = await registrarUsuario(req.body);
+  return res.status(201).json(resultado);
+});
 
-export const iniciarSesion = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const resultado = await iniciarSesionServicio(req.body);
-    return res.status(200).json(resultado);
-  } catch (error) {
-    return next(error);
-  }
-};
+export const iniciarSesion = controladorAsync(async (req, res) => {
+  const resultado = await iniciarSesionServicio(req.body);
+  return res.status(200).json(resultado);
+});
 
-export const obtenerPerfil = async (
-  req: SolicitudAutenticada,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const usuario = await obtenerUsuarioActual(req.usuario!.usuarioId);
-    return res.status(200).json({ usuario });
-  } catch (error) {
-    return next(error);
-  }
-};
+export const obtenerPerfil = controladorAsync<SolicitudAutenticada>(async (req, res) => {
+  const usuario = await obtenerUsuarioActual(req.usuario!.usuarioId);
+  return res.status(200).json({ usuario });
+});
 
-export const verificarCorreo = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const token = String(req.body?.token ?? req.query.token ?? '');
-    const resultado = await verificarCorreoServicio(token);
-    return res.status(200).json(resultado);
-  } catch (error) {
-    return next(error);
-  }
-};
+export const verificarCorreo = controladorAsync(async (req, res) => {
+  const token = String(req.body?.token ?? req.query.token ?? '');
+  const resultado = await verificarCorreoServicio(token);
+  return res.status(200).json(resultado);
+});
 
-export const solicitarCambioContrasena = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const resultado = await solicitarCambioContrasenaServicio(req.body.correo);
-    return res.status(200).json(resultado);
-  } catch (error) {
-    return next(error);
-  }
-};
+export const solicitarCambioContrasena = controladorAsync(async (req, res) => {
+  const resultado = await solicitarCambioContrasenaServicio(req.body.correo);
+  return res.status(200).json(resultado);
+});
 
-export const cambiarContrasena = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const resultado = await cambiarContrasenaServicio(req.body.token, req.body.contrasena);
-    return res.status(200).json(resultado);
-  } catch (error) {
-    return next(error);
-  }
-};
+export const cambiarContrasena = controladorAsync(async (req, res) => {
+  const resultado = await cambiarContrasenaServicio(req.body.token, req.body.contrasena);
+  return res.status(200).json(resultado);
+});
