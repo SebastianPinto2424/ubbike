@@ -1,18 +1,18 @@
-import { ErrorHttp } from '../../comun/errors/error-http';
-import { fuenteDatos } from '../../configuracion/base-datos';
-import { registrarAuditoria } from '../auditoria/auditoria.servicio';
-import { Bicicleta } from '../bicicletas/bicicleta.entidad';
-import { Bicicletero } from '../bicicleteros/bicicletero.entidad';
-import { EstadoMovimiento } from '../historial/estado-movimiento';
-import { Movimiento } from '../historial/movimiento.entidad';
-import { TipoMovimiento } from '../historial/tipo-movimiento';
-import { crearNotificacion } from '../notificaciones/notificacion.servicio';
-import { TipoNotificacion } from '../notificaciones/tipo-notificacion';
-import { CodigoQrTemporal } from '../qr/codigo-qr-temporal.entidad';
-import { obtenerCodigoQrValido } from '../qr/qr.servicio';
-import { Usuario } from '../usuarios/usuario.entidad';
-import { RolUsuario } from '../usuarios/rol-usuario';
-import { AsignacionGuardia } from './asignacion-guardia.entidad';
+﻿import { ErrorHttp } from '../../../comun/errors/error-http';
+import { fuenteDatos } from '../../../configuracion/base-datos';
+import { registrarAuditoria } from '../../auditoria/auditoria.servicio';
+import { Bicicleta } from '../../bicicletas/bicicleta.entidad';
+import { Bicicletero } from '../../bicicleteros/bicicletero.entidad';
+import { EstadoMovimiento } from '../../historial/estado-movimiento';
+import { Movimiento } from '../../historial/movimiento.entidad';
+import { TipoMovimiento } from '../../historial/tipo-movimiento';
+import { crearNotificacion } from '../../notificaciones/notificacion.servicio';
+import { TipoNotificacion } from '../../notificaciones/tipo-notificacion';
+import { CodigoQrTemporal } from '../../qr/codigo-qr-temporal.entidad';
+import { obtenerCodigoQrValido } from '../../qr/qr.servicio';
+import { Usuario } from '../../usuarios/usuario.entidad';
+import { RolUsuario } from '../../usuarios/rol-usuario';
+import { AsignacionGuardia } from '../asignaciones/asignacion-guardia.entidad';
 
 type DatosConfirmarQr = {
   token: string;

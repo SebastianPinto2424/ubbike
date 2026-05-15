@@ -8,6 +8,7 @@ import '../../../features/inicio/presentation/pantalla_principal.dart';
 import '../../../shared/servicios/sesion_actual.dart';
 import '../../../shared/widgets/contenedor_responsivo.dart';
 import '../../../shared/widgets/marca_ubbike.dart';
+import 'widgets/estilos_formulario_auth.dart';
 
 class PantallaLogin extends StatefulWidget {
   const PantallaLogin({super.key});
@@ -21,6 +22,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
   final contrasenaController = TextEditingController();
   final autenticacionApi = AutenticacionApi();
   bool cargando = false;
+  bool mostrarContrasena = false;
 
   @override
   void dispose() {
@@ -35,6 +37,9 @@ class _PantallaLoginState extends State<PantallaLogin> {
       backgroundColor: ColoresUbb.azulNoche,
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final altoFormulario =
+              constraints.maxHeight > 246 ? constraints.maxHeight - 246 : 0.0;
+
           return SingleChildScrollView(
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
@@ -43,7 +48,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
                   const _CabeceraIngreso(),
                   ConstrainedBox(
                     constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight - 246,
+                      minHeight: altoFormulario,
                     ),
                     child: DecoratedBox(
                       decoration: const BoxDecoration(
@@ -52,29 +57,43 @@ class _PantallaLoginState extends State<PantallaLogin> {
                           top: Radius.circular(18),
                         ),
                       ),
-                      child: ContenedorResponsivo(
-                        anchoMaximo: 520,
-                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _FormularioIngreso(
-                              correoController: correoController,
-                              contrasenaController: contrasenaController,
-                              cargando: cargando,
-                              onIngresar: _iniciarSesion,
-                              onRegistro: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const PantallaRegistro(),
-                                  ),
-                                );
-                              },
-                              onRecuperar: () => _mostrarRecuperacion(context),
+                      child: SafeArea(
+                        top: false,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 520),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                18,
+                                20,
+                                24,
+                              ),
+                              child: _FormularioIngreso(
+                                correoController: correoController,
+                                contrasenaController: contrasenaController,
+                                cargando: cargando,
+                                mostrarContrasena: mostrarContrasena,
+                                onAlternarContrasena: () {
+                                  setState(
+                                    () =>
+                                        mostrarContrasena = !mostrarContrasena,
+                                  );
+                                },
+                                onIngresar: _iniciarSesion,
+                                onRegistro: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const PantallaRegistro(),
+                                    ),
+                                  );
+                                },
+                                onRecuperar: () =>
+                                    _mostrarRecuperacion(context),
+                              ),
                             ),
-                            const SizedBox(height: 14),
-                            const _AvisoSeguridad(),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -156,6 +175,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) {
         return Padding(
           padding: EdgeInsets.fromLTRB(
@@ -164,54 +184,64 @@ class _PantallaLoginState extends State<PantallaLogin> {
             20,
             20 + MediaQuery.of(context).viewInsets.bottom,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Recuperar contrasena',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Enviaremos un enlace seguro al correo institucional registrado.',
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: correoRecuperacionController,
-                decoration: const InputDecoration(
-                  labelText: 'Correo institucional',
-                  prefixIcon: Icon(Icons.mail_outline),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Recuperar contrasena',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  try {
-                    final mensaje =
-                        await autenticacionApi.solicitarCambioContrasena(
-                      correoRecuperacionController.text.trim(),
-                    );
-                    if (contextoPantalla.mounted) {
-                      _mostrarMensajeCorreo(contextoPantalla, mensaje);
+                const SizedBox(height: 8),
+                const Text(
+                  'Enviaremos un enlace seguro al correo institucional registrado.',
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: correoRecuperacionController,
+                  decoration: decoracionCampoAuth(
+                    labelText: 'Correo institucional',
+                    icono: Icons.mail_outline,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  style: estiloBotonAuth(),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    try {
+                      final mensaje =
+                          await autenticacionApi.solicitarCambioContrasena(
+                        correoRecuperacionController.text.trim(),
+                      );
+                      if (contextoPantalla.mounted) {
+                        _mostrarMensajeCorreo(contextoPantalla, mensaje);
+                      }
+                    } on ExcepcionApi catch (error) {
+                      if (contextoPantalla.mounted) {
+                        _mostrarMensajeCorreo(contextoPantalla, error.mensaje);
+                      }
+                    } catch (_) {
+                      if (contextoPantalla.mounted) {
+                        _mostrarMensajeCorreo(
+                          contextoPantalla,
+                          'No se pudo conectar con el backend',
+                        );
+                      }
                     }
-                  } on ExcepcionApi catch (error) {
-                    if (contextoPantalla.mounted) {
-                      _mostrarMensajeCorreo(contextoPantalla, error.mensaje);
-                    }
-                  }
-                },
-                icon: const Icon(Icons.send_outlined),
-                label: const Text('Enviar correo'),
-              ),
-            ],
+                  },
+                  icon: const Icon(Icons.send_outlined),
+                  label: const Text('Enviar correo'),
+                ),
+              ],
+            ),
           ),
         );
       },
-    );
+    ).whenComplete(correoRecuperacionController.dispose);
   }
 
   void _mostrarMensajeCorreo(BuildContext context, String mensaje) {
@@ -234,110 +264,21 @@ class _CabeceraIngreso extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const MarcaUbbike(compacta: true, sobreAzul: true),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.18),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        child: Text(
-                          'Universidad del Bio-Bio',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            const MarcaUbbike(compacta: true, sobreAzul: true),
             const SizedBox(height: 24),
             Text(
-              'Control de bicicleteros UBB',
+              'Tu acceso seguro a los bicicleteros UBB',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
                   ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
-              'Plataforma institucional para registrar bicicletas, validar accesos y consultar movimientos de forma segura.',
+              'Registra tu bicicleta, genera codigos temporales y revisa cada ingreso o retiro desde una sola app institucional.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white.withValues(alpha: 0.86),
                     height: 1.35,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            const Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _InsigniaCabecera(
-                  icono: Icons.qr_code_2,
-                  texto: 'Codigo QR',
-                ),
-                _InsigniaCabecera(
-                  icono: Icons.verified_user_outlined,
-                  texto: 'Validacion segura',
-                ),
-                _InsigniaCabecera(
-                  icono: Icons.history,
-                  texto: 'Trazabilidad',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InsigniaCabecera extends StatelessWidget {
-  const _InsigniaCabecera({required this.icono, required this.texto});
-
-  final IconData icono;
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icono, size: 17, color: ColoresUbb.turquesa),
-            const SizedBox(width: 6),
-            Text(
-              texto,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
                   ),
             ),
           ],
@@ -352,6 +293,8 @@ class _FormularioIngreso extends StatelessWidget {
     required this.correoController,
     required this.contrasenaController,
     required this.cargando,
+    required this.mostrarContrasena,
+    required this.onAlternarContrasena,
     required this.onIngresar,
     required this.onRegistro,
     required this.onRecuperar,
@@ -360,136 +303,111 @@ class _FormularioIngreso extends StatelessWidget {
   final TextEditingController correoController;
   final TextEditingController contrasenaController;
   final bool cargando;
+  final bool mostrarContrasena;
+  final VoidCallback onAlternarContrasena;
   final VoidCallback onIngresar;
   final VoidCallback onRegistro;
   final VoidCallback onRecuperar;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+    final estiloEnlace = Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: ColoresUbb.textoPrincipal,
+          fontWeight: FontWeight.w500,
+        );
+    final estiloEnlaceDestacado = estiloEnlace?.copyWith(
+      fontWeight: FontWeight.w900,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Iniciar Sesión',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: ColoresUbb.textoPrincipal,
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        const SizedBox(height: 22),
+        TextField(
+          controller: correoController,
+          decoration: decoracionCampoAuth(
+            labelText: 'Correo electrónico',
+            icono: Icons.mail_outline,
+          ),
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: 24),
+        TextField(
+          controller: contrasenaController,
+          decoration: decoracionCampoAuth(
+            labelText: 'Contraseña',
+            icono: Icons.lock_outline,
+            suffixIcon: IconButton(
+              tooltip: mostrarContrasena
+                  ? 'Ocultar contraseña'
+                  : 'Mostrar contraseña',
+              onPressed: onAlternarContrasena,
+              icon: Icon(
+                mostrarContrasena
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+              ),
+            ),
+          ),
+          obscureText: !mostrarContrasena,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => onIngresar(),
+        ),
+        const SizedBox(height: 5),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: onRecuperar,
+            style: TextButton.styleFrom(
+              foregroundColor: ColoresUbb.textoPrincipal,
+              shape: const StadiumBorder(),
+            ),
+            child: RichText(
+              textAlign: TextAlign.right,
+              text: TextSpan(
+                style: estiloEnlace,
+                children: [
+                  const TextSpan(text: '¿Has olvidado tu contraseña? '),
+                  TextSpan(text: 'Recuperar', style: estiloEnlaceDestacado),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: cargando ? null : onIngresar,
+          style: estiloBotonAuth(),
+          child: cargando ? indicadorBotonAuth() : const Text('Ingresar'),
+        ),
+        const SizedBox(height: 20),
+        TextButton(
+          onPressed: onRegistro,
+          style: TextButton.styleFrom(
+            foregroundColor: ColoresUbb.textoPrincipal,
+            shape: const StadiumBorder(),
+          ),
+          child: RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: estiloEnlace,
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: ColoresUbb.azulApp,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.lock_outline, color: Colors.white),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Inicio de sesion institucional',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Ingresa con tu correo institucional UBB.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: ColoresUbb.textoSecundario,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
+                const TextSpan(text: '¿Aún no tienes cuenta? '),
+                TextSpan(text: 'Registrarse', style: estiloEnlaceDestacado),
               ],
             ),
-            const SizedBox(height: 18),
-            TextField(
-              controller: correoController,
-              decoration: const InputDecoration(
-                labelText: 'Correo institucional',
-                prefixIcon: Icon(Icons.mail_outline),
-              ),
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: contrasenaController,
-              decoration: const InputDecoration(
-                labelText: 'Contrasena',
-                prefixIcon: Icon(Icons.lock_outline),
-              ),
-              obscureText: true,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => onIngresar(),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: onRecuperar,
-                child: const Text('Olvide mi contrasena'),
-              ),
-            ),
-            const SizedBox(height: 4),
-            ElevatedButton.icon(
-              onPressed: cargando ? null : onIngresar,
-              icon: cargando
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.login),
-              label: Text(cargando ? 'Ingresando...' : 'Iniciar sesion'),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: onRegistro,
-              icon: const Icon(Icons.mark_email_unread_outlined),
-              label: const Text('Solicitar cuenta institucional'),
-            ),
-          ],
+          ),
         ),
-      ),
-    );
-  }
-}
-
-class _AvisoSeguridad extends StatelessWidget {
-  const _AvisoSeguridad();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: ColoresUbb.turquesa.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ColoresUbb.turquesa.withValues(alpha: 0.42)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.security_outlined, color: ColoresUbb.azulApp),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'El registro y la recuperacion de contrasena se validan mediante correo institucional.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: ColoresUbb.azulOscuro,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

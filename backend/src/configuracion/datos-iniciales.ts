@@ -1,6 +1,6 @@
-import bcrypt from 'bcryptjs';
+﻿import bcrypt from 'bcryptjs';
 import { fuenteDatos } from './base-datos';
-import { AsignacionGuardia } from '../modulos/acceso/asignacion-guardia.entidad';
+import { AsignacionGuardia } from '../modulos/acceso/asignaciones/asignacion-guardia.entidad';
 import { Bicicletero } from '../modulos/bicicleteros/bicicletero.entidad';
 import { crearNotificacion } from '../modulos/notificaciones/notificacion.servicio';
 import { TipoNotificacion } from '../modulos/notificaciones/tipo-notificacion';
@@ -44,13 +44,15 @@ const usuariosDemo = [
 
 const bicicleterosBase = [
   {
-    nombre: 'Bicicletero Central',
-    ubicacion: 'Acceso principal Universidad del Bio-Bio',
+    nombre: 'Bicicletero cercano al Centro de Idiomas',
+    ubicacion: 'Sector Centro de Idiomas',
+    nombresAnteriores: ['Bicicletero Central'],
     capacidad: 80
   },
   {
-    nombre: 'Bicicletero Biblioteca',
-    ubicacion: 'Sector Biblioteca Central',
+    nombre: 'Bicicletero cercano a la FACE',
+    ubicacion: 'Sector FACE',
+    nombresAnteriores: ['Bicicletero Biblioteca'],
     capacidad: 55
   }
 ];
@@ -107,18 +109,32 @@ export const cargarDatosIniciales = async (): Promise<void> => {
   }
 
   for (const bicicleteroBase of bicicleterosBase) {
-    const existente = await bicicleteros.findOneBy({
+    let existente = await bicicleteros.findOneBy({
       nombre: bicicleteroBase.nombre
     });
+
+    for (const nombreAnterior of bicicleteroBase.nombresAnteriores) {
+      if (existente) {
+        break;
+      }
+      existente = await bicicleteros.findOneBy({ nombre: nombreAnterior });
+    }
+
+    const datosBicicletero = {
+      nombre: bicicleteroBase.nombre,
+      ubicacion: bicicleteroBase.ubicacion,
+      capacidad: bicicleteroBase.capacidad
+    };
 
     if (!existente) {
       await bicicleteros.save(
         bicicleteros.create({
-          ...bicicleteroBase,
+          ...datosBicicletero,
           activo: true
         })
       );
     } else {
+      existente.nombre = datosBicicletero.nombre;
       existente.ubicacion = bicicleteroBase.ubicacion;
       existente.capacidad = bicicleteroBase.capacidad;
       existente.activo = true;
@@ -126,16 +142,27 @@ export const cargarDatosIniciales = async (): Promise<void> => {
     }
   }
 
+  for (const bicicleteroBase of bicicleterosBase) {
+    for (const nombreAnterior of bicicleteroBase.nombresAnteriores) {
+      const anterior = await bicicleteros.findOneBy({ nombre: nombreAnterior });
+
+      if (anterior) {
+        anterior.activo = false;
+        await bicicleteros.save(anterior);
+      }
+    }
+  }
+
   const guardia = await usuarios.findOneBy({ correo: 'guardia@ubiobio.cl' });
-  const bicicleteroCentral = await bicicleteros.findOneBy({
-    nombre: 'Bicicletero Central'
+  const bicicleteroCentroIdiomas = await bicicleteros.findOneBy({
+    nombre: 'Bicicletero cercano al Centro de Idiomas'
   });
 
-  if (guardia && bicicleteroCentral) {
+  if (guardia && bicicleteroCentroIdiomas) {
     const asignacionExistente = await asignaciones.findOne({
       where: {
         guardia: { id: guardia.id },
-        bicicletero: { id: bicicleteroCentral.id },
+        bicicletero: { id: bicicleteroCentroIdiomas.id },
         activa: true
       }
     });
@@ -144,7 +171,7 @@ export const cargarDatosIniciales = async (): Promise<void> => {
       await asignaciones.save(
         asignaciones.create({
           guardia,
-          bicicletero: bicicleteroCentral,
+          bicicletero: bicicleteroCentroIdiomas,
           iniciaEn: new Date(),
           terminaEn: null,
           activa: true

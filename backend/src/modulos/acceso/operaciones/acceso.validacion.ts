@@ -1,5 +1,5 @@
-import Joi from 'joi';
-import { TipoMovimiento } from '../historial/tipo-movimiento';
+﻿import Joi from 'joi';
+import { TipoMovimiento } from '../../historial/tipo-movimiento';
 
 export const esquemaConfirmarQr = Joi.object({
   token: Joi.string().trim().required(),

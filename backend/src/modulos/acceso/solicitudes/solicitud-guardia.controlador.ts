@@ -1,5 +1,5 @@
-import { NextFunction, Response } from 'express';
-import { SolicitudAutenticada } from '../../comun/middlewares/autenticacion.middleware';
+﻿import { NextFunction, Response } from 'express';
+import { SolicitudAutenticada } from '../../../comun/middlewares/autenticacion.middleware';
 import {
   actualizarEstadoSolicitudGuardia,
   crearSolicitudGuardia,

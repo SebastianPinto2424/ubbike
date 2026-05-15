@@ -60,14 +60,14 @@ class SolicitudDemo {
 
 const bicicleterosDemo = [
   BicicleteroDemo(
-    nombre: 'Bicicletero Central',
-    ubicacion: 'Acceso principal campus',
+    nombre: 'Bicicletero cercano al Centro de Idiomas',
+    ubicacion: 'Sector Centro de Idiomas',
     guardiasAsignados: 1,
     ocupacion: 68,
   ),
   BicicleteroDemo(
-    nombre: 'Bicicletero Biblioteca',
-    ubicacion: 'Costado biblioteca central',
+    nombre: 'Bicicletero cercano a la FACE',
+    ubicacion: 'Sector FACE',
     guardiasAsignados: 1,
     ocupacion: 42,
   ),
@@ -89,7 +89,7 @@ const bicicletasDemo = [
 const movimientosDemo = [
   MovimientoDemo(
     tipo: 'Ingreso',
-    bicicletero: 'Bicicletero Central',
+    bicicletero: 'Bicicletero cercano al Centro de Idiomas',
     fecha: 'Hoy, 08:14',
     guardian: 'Guardia M. Salazar',
     usuario: 'Sebastian Pinto',
@@ -98,7 +98,7 @@ const movimientosDemo = [
   ),
   MovimientoDemo(
     tipo: 'Salida',
-    bicicletero: 'Bicicletero Biblioteca',
+    bicicletero: 'Bicicletero cercano a la FACE',
     fecha: 'Ayer, 18:02',
     guardian: 'Guardia C. Munoz',
     usuario: 'Camila Torres',
@@ -107,7 +107,7 @@ const movimientosDemo = [
   ),
   MovimientoDemo(
     tipo: 'Ingreso',
-    bicicletero: 'Bicicletero Biblioteca',
+    bicicletero: 'Bicicletero cercano a la FACE',
     fecha: 'Ayer, 09:23',
     guardian: 'Guardia C. Munoz',
     usuario: 'Sebastian Pinto',
@@ -123,13 +123,13 @@ const guardiasDemo = [
 
 const solicitudesDemo = [
   SolicitudDemo(
-    bicicletero: 'Bicicletero Central',
+    bicicletero: 'Bicicletero cercano al Centro de Idiomas',
     tipo: 'Requiere servicio',
     estado: 'Pendiente',
     tiempo: 'Hace 3 min',
   ),
   SolicitudDemo(
-    bicicletero: 'Bicicletero Biblioteca',
+    bicicletero: 'Bicicletero cercano a la FACE',
     tipo: 'Guardia ausente',
     estado: 'En camino',
     tiempo: 'Hace 9 min',

@@ -82,4 +82,8 @@ class BicicletaApi {
   Future<void> activar(String bicicletaId) async {
     await cliente.patch('/bicicletas/$bicicletaId/activar');
   }
+
+  Future<void> desactivar(String bicicletaId) async {
+    await cliente.patch('/bicicletas/$bicicletaId/desactivar');
+  }
 }

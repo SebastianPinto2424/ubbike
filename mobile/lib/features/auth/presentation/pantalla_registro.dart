@@ -5,6 +5,7 @@ import '../../../core/tema/colores_ubb.dart';
 import '../../../features/auth/data/autenticacion_api.dart';
 import '../../../shared/widgets/contenedor_responsivo.dart';
 import '../../../shared/widgets/marca_ubbike.dart';
+import 'widgets/estilos_formulario_auth.dart';
 
 class PantallaRegistro extends StatefulWidget {
   const PantallaRegistro({super.key});
@@ -21,6 +22,7 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
   final contrasenaController = TextEditingController();
   final autenticacionApi = AutenticacionApi();
   bool cargando = false;
+  bool mostrarContrasena = false;
 
   @override
   void dispose() {
@@ -56,111 +58,117 @@ class _PantallaRegistroState extends State<PantallaRegistro> {
                   ),
             ),
             const SizedBox(height: 18),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextFormField(
-                        controller: nombreController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nombre completo',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        textInputAction: TextInputAction.next,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'El nombre es obligatorio.';
-                          }
-                          if (value.trim().length < 3) {
-                            return 'El nombre debe tener al menos 3 caracteres.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: rutController,
-                        decoration: const InputDecoration(
-                          labelText: 'RUT',
-                          prefixIcon: Icon(Icons.badge_outlined),
-                        ),
-                        textInputAction: TextInputAction.next,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'El RUT es obligatorio.';
-                          }
-                          final rutRegex =
-                              RegExp(r'^\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]$');
-                          if (!rutRegex.hasMatch(value)) {
-                            return 'Formato incorrecto. Ej: 12.345.678-9 o 12345678-9';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: correoController,
-                        decoration: const InputDecoration(
-                          labelText: 'Correo institucional',
-                          prefixIcon: Icon(Icons.mail_outline),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'El correo es obligatorio.';
-                          }
-                          if (!value.endsWith('@ubiobio.cl') &&
-                              !value.endsWith('@alumnos.ubiobio.cl')) {
-                            return 'Debe ser @ubiobio.cl o @alumnos.ubiobio.cl';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: contrasenaController,
-                        decoration: const InputDecoration(
-                          labelText: 'Contrasena',
-                          prefixIcon: Icon(Icons.lock_outline),
-                        ),
-                        obscureText: true,
-                        textInputAction: TextInputAction.next,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'La contrasena es obligatoria.';
-                          }
-                          final segura = RegExp(
-                            r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$',
-                          );
-                          if (!segura.hasMatch(value)) {
-                            return 'Minimo 12 caracteres con mayuscula, minuscula, numero y simbolo.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      ElevatedButton.icon(
-                        onPressed: cargando ? null : _registrar,
-                        icon: cargando
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.mark_email_read_outlined),
-                        label: Text(
-                          cargando ? 'Enviando...' : 'Enviar solicitud',
-                        ),
-                      ),
-                    ],
+            Form(
+              key: formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: nombreController,
+                    decoration: decoracionCampoAuth(
+                      labelText: 'Nombre completo',
+                      icono: Icons.person_outline,
+                    ),
+                    textInputAction: TextInputAction.next,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'El nombre es obligatorio.';
+                      }
+                      if (value.trim().length < 3) {
+                        return 'El nombre debe tener al menos 3 caracteres.';
+                      }
+                      return null;
+                    },
                   ),
-                ),
+                  const SizedBox(height: 24),
+                  TextFormField(
+                    controller: rutController,
+                    decoration: decoracionCampoAuth(
+                      labelText: 'RUT',
+                      icono: Icons.badge_outlined,
+                    ),
+                    textInputAction: TextInputAction.next,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'El RUT es obligatorio.';
+                      }
+                      final rutRegex =
+                          RegExp(r'^\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]$');
+                      if (!rutRegex.hasMatch(value)) {
+                        return 'Formato incorrecto. Ej: 12.345.678-9 o 12345678-9';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  TextFormField(
+                    controller: correoController,
+                    decoration: decoracionCampoAuth(
+                      labelText: 'Correo institucional',
+                      icono: Icons.mail_outline,
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'El correo es obligatorio.';
+                      }
+                      if (!value.endsWith('@ubiobio.cl') &&
+                          !value.endsWith('@alumnos.ubiobio.cl')) {
+                        return 'Debe ser @ubiobio.cl o @alumnos.ubiobio.cl';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  TextFormField(
+                    controller: contrasenaController,
+                    decoration: decoracionCampoAuth(
+                      labelText: 'Contrasena',
+                      icono: Icons.lock_outline,
+                      suffixIcon: IconButton(
+                        tooltip: mostrarContrasena
+                            ? 'Ocultar contrasena'
+                            : 'Mostrar contrasena',
+                        onPressed: () {
+                          setState(
+                            () => mostrarContrasena = !mostrarContrasena,
+                          );
+                        },
+                        icon: Icon(
+                          mostrarContrasena
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                        ),
+                      ),
+                    ),
+                    obscureText: !mostrarContrasena,
+                    textInputAction: TextInputAction.done,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'La contrasena es obligatoria.';
+                      }
+                      final segura = RegExp(
+                        r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$',
+                      );
+                      if (!segura.hasMatch(value)) {
+                        return 'Minimo 12 caracteres con mayuscula, minuscula, numero y simbolo.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 26),
+                  ElevatedButton.icon(
+                    style: estiloBotonAuth(),
+                    onPressed: cargando ? null : _registrar,
+                    icon: cargando
+                        ? indicadorBotonAuth()
+                        : const Icon(Icons.mark_email_read_outlined),
+                    label: Text(
+                      cargando ? 'Enviando...' : 'Enviar solicitud',
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

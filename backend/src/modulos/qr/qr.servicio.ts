@@ -1,10 +1,10 @@
-import crypto from 'crypto';
+﻿import crypto from 'crypto';
 import { ErrorHttp } from '../../comun/errors/error-http';
 import { fuenteDatos } from '../../configuracion/base-datos';
 import { Bicicleta } from '../bicicletas/bicicleta.entidad';
 import { Bicicletero } from '../bicicleteros/bicicletero.entidad';
 import { TipoMovimiento } from '../historial/tipo-movimiento';
-import { AsignacionGuardia } from '../acceso/asignacion-guardia.entidad';
+import { AsignacionGuardia } from '../acceso/asignaciones/asignacion-guardia.entidad';
 import { RolUsuario } from '../usuarios/rol-usuario';
 import { Usuario } from '../usuarios/usuario.entidad';
 import { CodigoQrTemporal } from './codigo-qr-temporal.entidad';

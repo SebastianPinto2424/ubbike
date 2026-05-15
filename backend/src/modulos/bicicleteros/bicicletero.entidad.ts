@@ -1,4 +1,4 @@
-import {
+﻿import {
   Column,
   CreateDateColumn,
   Entity,
@@ -6,8 +6,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn
 } from 'typeorm';
-import { AsignacionGuardia } from '../acceso/asignacion-guardia.entidad';
-import { SolicitudGuardia } from '../acceso/solicitud-guardia.entidad';
+import { AsignacionGuardia } from '../acceso/asignaciones/asignacion-guardia.entidad';
+import { SolicitudGuardia } from '../acceso/solicitudes/solicitud-guardia.entidad';
 import { Movimiento } from '../historial/movimiento.entidad';
 import { Incidencia } from '../incidencias/incidencia.entidad';
 

@@ -47,23 +47,11 @@ class _PantallaNotificacionesState extends State<PantallaNotificaciones> {
     });
   }
 
-  Future<void> _marcarLeidas() async {
-    await notificacionApi.marcarTodasLeidas();
-    await _recargar();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notificaciones'),
-        actions: [
-          IconButton(
-            tooltip: 'Marcar todas como leidas',
-            onPressed: _marcarLeidas,
-            icon: const Icon(Icons.done_all),
-          ),
-        ],
       ),
       body: ContenedorResponsivo(
         anchoMaximo: 760,

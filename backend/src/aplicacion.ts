@@ -1,4 +1,4 @@
-import cors from 'cors';
+﻿import cors from 'cors';
 import helmet from 'helmet';
 import express, { Request, Response } from 'express';
 import { rutasAutenticacion } from './modulos/autenticacion/autenticacion.rutas';
@@ -7,9 +7,9 @@ import { rutasBicicleteros } from './modulos/bicicleteros/bicicletero.rutas';
 import { rutasHistorial } from './modulos/historial/historial.rutas';
 import { rutasNotificaciones } from './modulos/notificaciones/notificacion.rutas';
 import { rutasQr } from './modulos/qr/qr.rutas';
-import { rutasAcceso } from './modulos/acceso/acceso.rutas';
-import { rutasAsignacionGuardia } from './modulos/acceso/asignacion-guardia.rutas';
-import { rutasSolicitudesGuardia } from './modulos/acceso/solicitud-guardia.rutas';
+import { rutasAcceso } from './modulos/acceso/operaciones/acceso.rutas';
+import { rutasAsignacionGuardia } from './modulos/acceso/asignaciones/asignacion-guardia.rutas';
+import { rutasSolicitudesGuardia } from './modulos/acceso/solicitudes/solicitud-guardia.rutas';
 import { rutasUsuarios } from './modulos/usuarios/usuario.rutas';
 import { middlewareErrores } from './comun/middlewares/errores.middleware';
 import { entorno } from './configuracion/entorno';

@@ -6,6 +6,7 @@ import '../../../features/auth/data/autenticacion_api.dart';
 import '../../../shared/widgets/contenedor_responsivo.dart';
 import '../../../shared/widgets/marca_ubbike.dart';
 import 'pantalla_login.dart';
+import 'widgets/estilos_formulario_auth.dart';
 
 class PantallaVerificarCorreo extends StatefulWidget {
   const PantallaVerificarCorreo({super.key, required this.token});
@@ -84,6 +85,7 @@ class _PantallaCambiarContrasenaState extends State<PantallaCambiarContrasena> {
   final contrasenaController = TextEditingController();
   final autenticacionApi = AutenticacionApi();
   bool cargando = false;
+  bool mostrarContrasena = false;
 
   @override
   void dispose() {
@@ -145,37 +147,50 @@ class _PantallaCambiarContrasenaState extends State<PantallaCambiarContrasena> {
           children: [
             const MarcaUbbike(compacta: true),
             const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Nueva contrasena',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: contrasenaController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Contrasena',
-                        prefixIcon: Icon(Icons.lock_outline),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Nueva contrasena',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: contrasenaController,
+                  obscureText: !mostrarContrasena,
+                  decoration: decoracionCampoAuth(
+                    labelText: 'Contrasena',
+                    icono: Icons.lock_outline,
+                    suffixIcon: IconButton(
+                      tooltip: mostrarContrasena
+                          ? 'Ocultar contrasena'
+                          : 'Mostrar contrasena',
+                      onPressed: () {
+                        setState(
+                          () => mostrarContrasena = !mostrarContrasena,
+                        );
+                      },
+                      icon: Icon(
+                        mostrarContrasena
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: cargando ? null : _cambiar,
-                      icon: const Icon(Icons.save_outlined),
-                      label: Text(cargando ? 'Guardando...' : 'Guardar cambio'),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 26),
+                ElevatedButton.icon(
+                  style: estiloBotonAuth(),
+                  onPressed: cargando ? null : _cambiar,
+                  icon: cargando
+                      ? indicadorBotonAuth()
+                      : const Icon(Icons.save_outlined),
+                  label: Text(cargando ? 'Guardando...' : 'Guardar cambio'),
+                ),
+              ],
             ),
           ],
         ),
@@ -231,6 +246,7 @@ class _PantallaEstadoCorreo extends StatelessWidget {
                     const Center(child: CircularProgressIndicator())
                   else
                     ElevatedButton.icon(
+                      style: estiloBotonAuth(),
                       onPressed: () {
                         Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute(

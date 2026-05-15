@@ -1,12 +1,12 @@
-import { ErrorHttp } from '../../comun/errors/error-http';
-import { fuenteDatos } from '../../configuracion/base-datos';
-import { registrarAuditoria } from '../auditoria/auditoria.servicio';
-import { Bicicleta } from '../bicicletas/bicicleta.entidad';
-import { Bicicletero } from '../bicicleteros/bicicletero.entidad';
-import { crearNotificacion } from '../notificaciones/notificacion.servicio';
-import { TipoNotificacion } from '../notificaciones/tipo-notificacion';
-import { Usuario } from '../usuarios/usuario.entidad';
-import { AsignacionGuardia } from './asignacion-guardia.entidad';
+﻿import { ErrorHttp } from '../../../comun/errors/error-http';
+import { fuenteDatos } from '../../../configuracion/base-datos';
+import { registrarAuditoria } from '../../auditoria/auditoria.servicio';
+import { Bicicleta } from '../../bicicletas/bicicleta.entidad';
+import { Bicicletero } from '../../bicicleteros/bicicletero.entidad';
+import { crearNotificacion } from '../../notificaciones/notificacion.servicio';
+import { TipoNotificacion } from '../../notificaciones/tipo-notificacion';
+import { Usuario } from '../../usuarios/usuario.entidad';
+import { AsignacionGuardia } from '../asignaciones/asignacion-guardia.entidad';
 
 const repoAsignaciones = () => fuenteDatos.getRepository(AsignacionGuardia);
 const repoBicicleteros = () => fuenteDatos.getRepository(Bicicletero);
@@ -57,10 +57,7 @@ export const obtenerAsignacionActivaGuardia = async (guardiaId: string) => {
   return asignacion ? mapearAsignacion(asignacion) : null;
 };
 
-export const seleccionarBicicleteroGuardia = async (
-  guardiaId: string,
-  bicicleteroId: string
-) => {
+export const seleccionarBicicleteroGuardia = async (guardiaId: string, bicicleteroId: string) => {
   const bicicletero = await repoBicicleteros().findOne({
     where: {
       id: bicicleteroId,

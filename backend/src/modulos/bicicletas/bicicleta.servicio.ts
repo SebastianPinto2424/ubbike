@@ -229,3 +229,10 @@ export const activarBicicleta = async (usuarioId: string, bicicletaId: string) =
   const bicicleta = await buscarBicicletaUsuario(usuarioId, bicicletaId);
   return mapearBicicleta(bicicleta);
 };
+
+export const desactivarBicicleta = async (usuarioId: string, bicicletaId: string) => {
+  const bicicleta = await buscarBicicletaUsuario(usuarioId, bicicletaId);
+  bicicleta.activa = false;
+  const guardada = await repositorioBicicletas().save(bicicleta);
+  return mapearBicicleta(guardada);
+};

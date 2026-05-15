@@ -1,8 +1,8 @@
-import { Router } from 'express';
-import { middlewareAutenticacion } from '../../comun/middlewares/autenticacion.middleware';
-import { autorizarRoles } from '../../comun/middlewares/autorizar-roles.middleware';
-import { validarCuerpo } from '../../comun/middlewares/validar-cuerpo.middleware';
-import { RolUsuario } from '../usuarios/rol-usuario';
+﻿import { Router } from 'express';
+import { middlewareAutenticacion } from '../../../comun/middlewares/autenticacion.middleware';
+import { autorizarRoles } from '../../../comun/middlewares/autorizar-roles.middleware';
+import { validarCuerpo } from '../../../comun/middlewares/validar-cuerpo.middleware';
+import { RolUsuario } from '../../usuarios/rol-usuario';
 import { confirmarAccesoQr, denegarAccesoQr, registrarManual } from './acceso.controlador';
 import { esquemaConfirmarQr, esquemaDenegarQr, esquemaGestionManual } from './acceso.validacion';
 

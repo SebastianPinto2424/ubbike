@@ -1,6 +1,6 @@
-import { Router } from 'express';
-import { middlewareAutenticacion } from '../../comun/middlewares/autenticacion.middleware';
-import { validarCuerpo } from '../../comun/middlewares/validar-cuerpo.middleware';
+﻿import { Router } from 'express';
+import { middlewareAutenticacion } from '../../../comun/middlewares/autenticacion.middleware';
+import { validarCuerpo } from '../../../comun/middlewares/validar-cuerpo.middleware';
 import { actualizarEstado, crear, listar } from './solicitud-guardia.controlador';
 import {
   esquemaActualizarEstadoSolicitudGuardia,

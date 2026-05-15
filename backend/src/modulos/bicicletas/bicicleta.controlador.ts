@@ -4,6 +4,7 @@ import {
   activarBicicleta,
   actualizarBicicleta,
   crearBicicleta,
+  desactivarBicicleta,
   eliminarBicicleta,
   listarBicicletasUsuario,
   obtenerBicicletaActivaUsuario
@@ -72,6 +73,15 @@ export const eliminar = async (req: SolicitudAutenticada, res: Response, next: N
 export const activar = async (req: SolicitudAutenticada, res: Response, next: NextFunction) => {
   try {
     const bicicleta = await activarBicicleta(req.usuario!.usuarioId, req.params.id);
+    return res.status(200).json({ bicicleta });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const desactivar = async (req: SolicitudAutenticada, res: Response, next: NextFunction) => {
+  try {
+    const bicicleta = await desactivarBicicleta(req.usuario!.usuarioId, req.params.id);
     return res.status(200).json({ bicicleta });
   } catch (error) {
     return next(error);

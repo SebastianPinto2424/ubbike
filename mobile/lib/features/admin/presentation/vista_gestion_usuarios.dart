@@ -7,6 +7,14 @@ import '../../../shared/modelos/usuario_app.dart';
 import '../../../shared/widgets/chip_estado.dart';
 import '../data/usuarios_admin_api.dart';
 
+String _inicialUsuario(String nombre) {
+  final texto = nombre.trim();
+  if (texto.isEmpty) {
+    return '?';
+  }
+  return texto.characters.first.toUpperCase();
+}
+
 class VistaGestionUsuarios extends StatefulWidget {
   const VistaGestionUsuarios({super.key});
 
@@ -59,6 +67,12 @@ class _VistaGestionUsuariosState extends State<VistaGestionUsuarios> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error.mensaje)),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo conectar con el backend')),
         );
       }
     }
@@ -124,24 +138,26 @@ class _VistaGestionUsuariosState extends State<VistaGestionUsuarios> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Editar credenciales'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nombreController,
-              decoration: const InputDecoration(labelText: 'Nombre'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: correoController,
-              decoration: const InputDecoration(labelText: 'Correo'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: rutController,
-              decoration: const InputDecoration(labelText: 'RUT'),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nombreController,
+                decoration: const InputDecoration(labelText: 'Nombre'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: correoController,
+                decoration: const InputDecoration(labelText: 'Correo'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: rutController,
+                decoration: const InputDecoration(labelText: 'RUT'),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -253,7 +269,7 @@ class _TarjetaUsuarioAdmin extends StatelessWidget {
                 CircleAvatar(
                   backgroundColor: ColoresUbb.azulApp,
                   child: Text(
-                    usuario.nombre.characters.first,
+                    _inicialUsuario(usuario.nombre),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,

@@ -1,4 +1,4 @@
-import {
+﻿import {
   Column,
   CreateDateColumn,
   Entity,
@@ -7,8 +7,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn
 } from 'typeorm';
-import { Bicicletero } from '../bicicleteros/bicicletero.entidad';
-import { Usuario } from '../usuarios/usuario.entidad';
+import { Bicicletero } from '../../bicicleteros/bicicletero.entidad';
+import { Usuario } from '../../usuarios/usuario.entidad';
 
 @Entity('asignaciones_guardias')
 export class AsignacionGuardia {

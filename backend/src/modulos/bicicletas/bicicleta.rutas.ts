@@ -5,6 +5,7 @@ import {
   activar,
   actualizar,
   crear,
+  desactivar,
   eliminar,
   listar,
   obtenerActiva
@@ -20,5 +21,6 @@ rutasBicicletas.post('/', validarCuerpo(esquemaCrearBicicleta), crear);
 rutasBicicletas.patch('/:id', validarCuerpo(esquemaActualizarBicicleta), actualizar);
 rutasBicicletas.delete('/:id', eliminar);
 rutasBicicletas.patch('/:id/activar', activar);
+rutasBicicletas.patch('/:id/desactivar', desactivar);
 
 export { rutasBicicletas };
