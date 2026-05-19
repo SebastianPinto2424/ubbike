@@ -1,13 +1,26 @@
+import bcrypt from 'bcryptjs';
 import { ErrorHttp } from '../../../comun/errors/error-http';
+import { entorno } from '../../../configuracion/entorno';
 import { prisma, type ClientePrisma } from '../../../configuracion/prisma';
 import { Prisma } from '../../../generated/prisma/client';
 import { registrarAuditoria } from '../../auditoria/auditoria.servicio';
+import {
+  crearCorreoCompletarRegistro,
+  crearCorreoMovimientoManual,
+  enviarCorreo
+} from '../../correos/correo.servicio';
 import { EstadoMovimiento } from '../../historial/estado-movimiento';
 import { TipoMovimiento } from '../../historial/tipo-movimiento';
 import { crearNotificacion } from '../../notificaciones/notificacion.servicio';
 import { TipoNotificacion } from '../../notificaciones/tipo-notificacion';
-import { obtenerCodigoQrValido } from '../../qr/qr.servicio';
+import { obtenerCodigoQrEscaneadoParaMovimiento } from '../../qr/qr.servicio';
 import { RolUsuario } from '../../usuarios/rol-usuario';
+import {
+  crearTokenSeguro,
+  hashearToken,
+  horasExpiracionVerificacionCorreo,
+  resolverRolRegistrable
+} from '../../autenticacion/autenticacion.tokens';
 import { includeMovimientoCompleto, mapearMovimiento } from './acceso.mapeador';
 import { validarReglaMovimiento } from './acceso.reglas';
 
@@ -16,6 +29,7 @@ type DatosConfirmarQr = {
   guardiaId: string;
   rol: string;
   bicicleteroId?: string;
+  comentario?: string | null;
 };
 
 type DatosDenegarQr = DatosConfirmarQr & {
@@ -28,10 +42,22 @@ type DatosGestionManual = {
   correo?: string;
   rut?: string;
   bicicletaId?: string;
+  bicicletaDescripcion?: string;
+  bicicletaMarca?: string | null;
+  bicicletaModelo?: string | null;
+  bicicletaColor?: string | null;
+  bicicletaAro?: string | null;
+  bicicletaNumeroSerie?: string | null;
   bicicleteroId?: string;
   tipo: TipoMovimiento;
   denegar?: boolean;
   motivo?: string | null;
+  comentario?: string | null;
+};
+
+type DatosBuscarGestionManual = {
+  correo?: string;
+  rut?: string;
 };
 
 type UsuarioOperacion = Prisma.UsuarioGetPayload<Record<string, never>>;
@@ -41,6 +67,71 @@ type BicicletaOperacion = Prisma.BicicletaGetPayload<{
     bicicleteroActual: true;
   };
 }>;
+
+const limpiarRut = (rut: string) => rut.replace(/\./g, '').replace('-', '').toUpperCase();
+
+const formatearRutConPuntos = (rutLimpio: string) => {
+  if (!/^\d{7,8}[0-9K]$/.test(rutLimpio)) {
+    return null;
+  }
+
+  const cuerpo = rutLimpio.slice(0, -1);
+  const dv = rutLimpio.slice(-1);
+  const cuerpoFormateado = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${cuerpoFormateado}-${dv}`;
+};
+
+const obtenerVariantesRut = (rut?: string) => {
+  const original = rut?.trim();
+  if (!original) {
+    return [];
+  }
+
+  const limpio = limpiarRut(original);
+  const sinPuntos = limpio.length > 1 ? `${limpio.slice(0, -1)}-${limpio.slice(-1)}` : limpio;
+  const conPuntos = formatearRutConPuntos(limpio);
+
+  return [
+    ...new Set([original, original.toUpperCase(), limpio, sinPuntos, conPuntos].filter(Boolean))
+  ];
+};
+
+const construirCriteriosUsuarioManual = ({ correo, rut }: DatosBuscarGestionManual) => {
+  const criterios: Prisma.UsuarioWhereInput[] = [];
+  const correoNormalizado = correo?.trim().toLowerCase();
+
+  if (correoNormalizado) {
+    criterios.push({ correo: correoNormalizado });
+  }
+
+  for (const varianteRut of obtenerVariantesRut(rut)) {
+    criterios.push({ rut: varianteRut });
+  }
+
+  return criterios;
+};
+
+const mapearBicicletaManual = (
+  bicicleta: Prisma.BicicletaGetPayload<{ include: { bicicleteroActual: true } }>
+) => ({
+  id: bicicleta.id,
+  descripcion: bicicleta.descripcion,
+  marca: bicicleta.marca,
+  modelo: bicicleta.modelo,
+  color: bicicleta.color,
+  aro: bicicleta.aro,
+  numeroSerie: bicicleta.numeroSerie,
+  fotoUrl: bicicleta.fotoUrl,
+  activa: bicicleta.activa,
+  dentroBicicletero: bicicleta.dentroBicicletero,
+  bicicleteroActual: bicicleta.bicicleteroActual
+    ? {
+        id: bicicleta.bicicleteroActual.id,
+        nombre: bicicleta.bicicleteroActual.nombre,
+        ubicacion: bicicleta.bicicleteroActual.ubicacion
+      }
+    : null
+});
 
 const obtenerBicicleteroOperacion = async (
   guardiaId: string,
@@ -116,6 +207,7 @@ const registrarMovimiento = async ({
   estado,
   origen,
   motivo,
+  comentario,
   db
 }: {
   usuario: UsuarioOperacion;
@@ -126,8 +218,10 @@ const registrarMovimiento = async ({
   estado: EstadoMovimiento;
   origen: 'QR' | 'MANUAL';
   motivo?: string | null;
+  comentario?: string | null;
   db: ClientePrisma;
 }) => {
+  const comentarioGuardia = comentario?.trim() || null;
   const movimiento = await db.movimiento.create({
     data: {
       usuarioId: usuario.id,
@@ -137,7 +231,8 @@ const registrarMovimiento = async ({
       tipo,
       estado,
       origen,
-      motivoDenegacion: motivo ?? null
+      motivoDenegacion: motivo ?? null,
+      comentarioGuardia
     }
   });
 
@@ -193,7 +288,8 @@ const registrarMovimiento = async ({
         bicicleteroId: bicicletero.id,
         tipo,
         estado,
-        origen
+        origen,
+        comentarioGuardia
       }
     },
     db
@@ -206,17 +302,97 @@ const registrarMovimiento = async ({
     include: includeMovimientoCompleto
   });
 
+  if (origen === 'MANUAL') {
+    const correo = crearCorreoMovimientoManual({
+      nombre: movimientoCompleto.usuario.nombre,
+      tipo: movimientoCompleto.tipo,
+      estado: movimientoCompleto.estado,
+      bicicleta: movimientoCompleto.bicicleta.descripcion,
+      bicicletero: movimientoCompleto.bicicletero.nombre,
+      guardia: movimientoCompleto.validadoPorGuardia.nombre,
+      fecha: movimientoCompleto.creadoEn,
+      motivoDenegacion: movimientoCompleto.motivoDenegacion,
+      comentarioGuardia: movimientoCompleto.comentarioGuardia
+    });
+
+    await enviarCorreo({
+      para: movimientoCompleto.usuario.correo,
+      asunto: correo.asunto,
+      texto: correo.texto,
+      html: correo.html
+    });
+  }
+
   return mapearMovimiento(movimientoCompleto);
+};
+
+const crearBicicletaManual = async (
+  db: ClientePrisma,
+  usuarioId: string,
+  datos: DatosGestionManual
+) => {
+  const descripcion = datos.bicicletaDescripcion?.trim();
+
+  if (!descripcion) {
+    throw new ErrorHttp(400, 'Debes indicar los datos de la bicicleta para el ingreso manual');
+  }
+
+  await db.bicicleta.updateMany({
+    where: {
+      usuarioId,
+      eliminadoEn: null
+    },
+    data: {
+      activa: false
+    }
+  });
+
+  return db.bicicleta.create({
+    data: {
+      usuarioId,
+      descripcion,
+      marca: datos.bicicletaMarca || null,
+      modelo: datos.bicicletaModelo || null,
+      color: datos.bicicletaColor || null,
+      aro: datos.bicicletaAro || null,
+      numeroSerie: datos.bicicletaNumeroSerie || null,
+      activa: true,
+      dentroBicicletero: false,
+      bicicleteroActualId: null
+    },
+    include: {
+      bicicleteroActual: true
+    }
+  });
+};
+
+const enviarCorreoCompletarRegistro = async (correoUsuario: string, token: string) => {
+  const enlace = `${entorno.app.urlFrontend}/#/completar-registro?token=${token}`;
+  const correo = crearCorreoCompletarRegistro(correoUsuario, enlace);
+
+  await enviarCorreo({
+    para: correoUsuario,
+    asunto: correo.asunto,
+    texto: correo.texto,
+    html: correo.html
+  });
 };
 
 export const confirmarQr = async (datos: DatosConfirmarQr) => {
   return prisma.$transaction(async (db) => {
-    const codigo = await obtenerCodigoQrValido(datos.token, db);
+    const codigo = await obtenerCodigoQrEscaneadoParaMovimiento(
+      datos.token,
+      {
+        validadorUsuarioId: datos.guardiaId,
+        rol: datos.rol
+      },
+      db
+    );
     const bicicletero = await obtenerBicicleteroOperacion(
       datos.guardiaId,
       datos.rol,
       datos.bicicleteroId,
-      codigo.bicicletero,
+      codigo.bicicletero ?? codigo.bicicleta.bicicleteroActual,
       db
     );
     const tipo = codigo.tipo as TipoMovimiento;
@@ -245,6 +421,7 @@ export const confirmarQr = async (datos: DatosConfirmarQr) => {
       tipo,
       estado: EstadoMovimiento.CONFIRMADO,
       origen: 'QR',
+      comentario: datos.comentario,
       db
     });
   });
@@ -252,12 +429,19 @@ export const confirmarQr = async (datos: DatosConfirmarQr) => {
 
 export const denegarQr = async (datos: DatosDenegarQr) => {
   return prisma.$transaction(async (db) => {
-    const codigo = await obtenerCodigoQrValido(datos.token, db);
+    const codigo = await obtenerCodigoQrEscaneadoParaMovimiento(
+      datos.token,
+      {
+        validadorUsuarioId: datos.guardiaId,
+        rol: datos.rol
+      },
+      db
+    );
     const bicicletero = await obtenerBicicleteroOperacion(
       datos.guardiaId,
       datos.rol,
       datos.bicicleteroId,
-      codigo.bicicletero,
+      codigo.bicicletero ?? codigo.bicicleta.bicicleteroActual,
       db
     );
     const tipo = codigo.tipo as TipoMovimiento;
@@ -290,28 +474,117 @@ export const denegarQr = async (datos: DatosDenegarQr) => {
   });
 };
 
+export const buscarCoincidenciaGestionManual = async (datos: DatosBuscarGestionManual) => {
+  const criteriosUsuario = construirCriteriosUsuarioManual(datos);
+
+  if (!criteriosUsuario.length) {
+    throw new ErrorHttp(400, 'Debes indicar correo o RUT para buscar coincidencias');
+  }
+
+  const usuario = await prisma.usuario.findFirst({
+    where: {
+      OR: criteriosUsuario
+    },
+    include: {
+      bicicletas: {
+        where: {
+          eliminadoEn: null
+        },
+        include: {
+          bicicleteroActual: true
+        },
+        orderBy: [{ activa: 'desc' }, { dentroBicicletero: 'desc' }, { creadoEn: 'desc' }]
+      }
+    }
+  });
+
+  if (!usuario) {
+    return null;
+  }
+
+  return {
+    usuario: {
+      id: usuario.id,
+      nombre: usuario.nombre,
+      correo: usuario.correo,
+      rut: usuario.rut,
+      rol: usuario.rol,
+      correoVerificado: usuario.correoVerificado,
+      registroParcial: usuario.registroParcial,
+      cuentaActiva: usuario.cuentaActiva
+    },
+    bicicletas: usuario.bicicletas.map(mapearBicicletaManual)
+  };
+};
+
 export const registrarGestionManual = async (datos: DatosGestionManual) => {
-  return prisma.$transaction(async (db) => {
-    const criteriosUsuario = [
-      ...(datos.correo ? [{ correo: datos.correo.toLowerCase() }] : []),
-      ...(datos.rut ? [{ rut: datos.rut }] : [])
-    ];
+  let tokenCompletarRegistro: string | null = null;
+  let correoCompletarRegistro: string | null = null;
+
+  const movimiento = await prisma.$transaction(async (db) => {
+    const criteriosUsuario = construirCriteriosUsuarioManual(datos);
 
     if (!criteriosUsuario.length) {
       throw new ErrorHttp(400, 'Debes indicar correo o RUT');
     }
 
-    const usuario = await db.usuario.findFirst({
+    let usuario = await db.usuario.findFirst({
       where: {
         OR: criteriosUsuario
       }
     });
 
     if (!usuario) {
-      throw new ErrorHttp(404, 'Usuario no encontrado');
+      if (!datos.correo || !datos.rut) {
+        throw new ErrorHttp(
+          400,
+          'Para registrar un usuario nuevo debes indicar correo institucional y RUT'
+        );
+      }
+
+      if (datos.tipo !== TipoMovimiento.INGRESO) {
+        throw new ErrorHttp(404, 'Usuario no encontrado para registrar retiro manual');
+      }
+
+      const correoNormalizado = datos.correo.toLowerCase();
+      const rolAsignado = resolverRolRegistrable(correoNormalizado);
+      tokenCompletarRegistro = crearTokenSeguro();
+      correoCompletarRegistro = correoNormalizado;
+
+      usuario = await db.usuario.create({
+        data: {
+          nombre: 'Registro pendiente',
+          correo: correoNormalizado,
+          rut: datos.rut,
+          rol: rolAsignado,
+          contrasenaHash: await bcrypt.hash(crearTokenSeguro(), 12),
+          cuentaActiva: true,
+          correoVerificado: false,
+          registroParcial: true,
+          tokenVerificacionCorreo: hashearToken(tokenCompletarRegistro),
+          tokenVerificacionCorreoExpiraEn: new Date(
+            Date.now() + 1000 * 60 * 60 * horasExpiracionVerificacionCorreo
+          )
+        }
+      });
+    } else if (usuario.registroParcial) {
+      tokenCompletarRegistro = crearTokenSeguro();
+      correoCompletarRegistro = usuario.correo;
+
+      usuario = await db.usuario.update({
+        where: {
+          id: usuario.id
+        },
+        data: {
+          tokenVerificacionCorreo: hashearToken(tokenCompletarRegistro),
+          tokenVerificacionCorreoExpiraEn: new Date(
+            Date.now() + 1000 * 60 * 60 * horasExpiracionVerificacionCorreo
+          )
+        }
+      });
     }
 
-    const bicicleta = await db.bicicleta.findFirst({
+    let bicicleta = await db.bicicleta.findFirst({
       where: datos.bicicletaId
         ? {
             id: datos.bicicletaId,
@@ -329,7 +602,11 @@ export const registrarGestionManual = async (datos: DatosGestionManual) => {
     });
 
     if (!bicicleta) {
-      throw new ErrorHttp(404, 'Bicicleta activa no encontrada para el usuario');
+      if (datos.tipo !== TipoMovimiento.INGRESO) {
+        throw new ErrorHttp(404, 'Bicicleta activa no encontrada para el usuario');
+      }
+
+      bicicleta = await crearBicicletaManual(db, usuario.id, datos);
     }
 
     const bicicletero = await obtenerBicicleteroOperacion(
@@ -355,7 +632,14 @@ export const registrarGestionManual = async (datos: DatosGestionManual) => {
       estado,
       origen: 'MANUAL',
       motivo: datos.motivo,
+      comentario: datos.comentario,
       db
     });
   });
+
+  if (tokenCompletarRegistro && correoCompletarRegistro) {
+    await enviarCorreoCompletarRegistro(correoCompletarRegistro, tokenCompletarRegistro);
+  }
+
+  return movimiento;
 };

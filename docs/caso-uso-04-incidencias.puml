@@ -1,0 +1,51 @@
+@startuml
+title Casos de uso - Incidencias
+
+left to right direction
+
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #F8FBFD
+  BorderColor #1E88C8
+  ArrowColor #0B2A44
+}
+
+actor "Usuario comunidad\nuniversitaria" as Usuario
+actor "Guardia" as Guardia
+actor "Administrador" as Admin
+actor "Administrador central" as Central
+actor "Sistema de correo" as Correo
+
+Central --|> Admin
+
+rectangle "Sistema UBBike" {
+  usecase "Registrar incidencia" as UC01
+  usecase "Consultar incidencias" as UC02
+  usecase "Filtrar incidencias" as UC03
+  usecase "Cambiar estado\nde incidencia" as UC04
+  usecase "Cerrar incidencia\ncon respuesta" as UC05
+  usecase "Enviar notificación" as UC06
+}
+
+Usuario --> UC01
+Usuario --> UC02
+
+Guardia --> UC01
+Guardia --> UC02
+
+Admin --> UC01
+Admin --> UC02
+Admin --> UC03
+Admin --> UC04
+Admin --> UC05
+
+UC06 -- Correo
+
+UC03 ..> UC02 : <<include>>
+UC04 ..> UC06 : <<include>>
+UC05 ..> UC04 : <<include>>
+UC01 ..> UC06 : <<include>>
+
+@enduml

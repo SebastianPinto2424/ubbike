@@ -5,6 +5,8 @@ import { prisma } from '../../configuracion/prisma';
 import { registrarAuditoria } from '../auditoria/auditoria.servicio';
 import {
   crearCorreoCambioContrasena,
+  crearCorreoContrasenaActualizada,
+  crearCorreoCuentaVerificada,
   crearCorreoVerificacion,
   enviarCorreo
 } from '../correos/correo.servicio';
@@ -32,6 +34,12 @@ type DatosRegistro = {
 
 type DatosLogin = {
   correo: string;
+  contrasena: string;
+};
+
+type DatosCompletarRegistro = {
+  token: string;
+  nombre: string;
   contrasena: string;
 };
 
@@ -142,6 +150,17 @@ export const iniciarSesion = async (datos: DatosLogin) => {
     throw new ErrorHttp(403, 'La cuenta esta desactivada');
   }
 
+  if (usuario.registroParcial) {
+    await registrarAuditoria({
+      actorUsuarioId: usuario.id,
+      accion: 'LOGIN_BLOQUEADO',
+      entidad: 'usuarios',
+      entidadId: usuario.id,
+      datos: { motivo: 'registro_parcial' }
+    });
+    throw new ErrorHttp(403, 'Debes completar tu registro antes de iniciar sesion');
+  }
+
   if (!usuario.correoVerificado) {
     await registrarAuditoria({
       actorUsuarioId: usuario.id,
@@ -204,6 +223,10 @@ export const verificarCorreo = async (token: string) => {
     throw new ErrorHttp(400, 'Token de verificacion invalido');
   }
 
+  if (usuario.registroParcial) {
+    throw new ErrorHttp(409, 'Debes completar tu registro antes de activar la cuenta');
+  }
+
   if (
     !usuario.tokenVerificacionCorreoExpiraEn ||
     usuario.tokenVerificacionCorreoExpiraEn.getTime() < Date.now()
@@ -238,6 +261,14 @@ export const verificarCorreo = async (token: string) => {
     tipo: TipoNotificacion.CUENTA
   });
 
+  const correoCuentaVerificada = crearCorreoCuentaVerificada(usuarioGuardado.nombre);
+  await enviarCorreo({
+    para: usuarioGuardado.correo,
+    asunto: correoCuentaVerificada.asunto,
+    texto: correoCuentaVerificada.texto,
+    html: correoCuentaVerificada.html
+  });
+
   await registrarAuditoria({
     actorUsuarioId: usuarioGuardado.id,
     accion: 'CORREO_VERIFICADO',
@@ -247,6 +278,79 @@ export const verificarCorreo = async (token: string) => {
 
   return {
     message: 'Correo verificado correctamente',
+    usuario: mapearUsuarioPublico(usuarioGuardado)
+  };
+};
+
+export const completarRegistro = async (datos: DatosCompletarRegistro) => {
+  const usuario = await prisma.usuario.findFirst({
+    where: {
+      tokenVerificacionCorreo: hashearToken(datos.token),
+      registroParcial: true
+    }
+  });
+
+  if (!usuario) {
+    throw new ErrorHttp(400, 'Token de registro invalido');
+  }
+
+  if (
+    !usuario.tokenVerificacionCorreoExpiraEn ||
+    usuario.tokenVerificacionCorreoExpiraEn.getTime() < Date.now()
+  ) {
+    await prisma.usuario.update({
+      where: {
+        id: usuario.id
+      },
+      data: {
+        tokenVerificacionCorreo: null,
+        tokenVerificacionCorreoExpiraEn: null
+      }
+    });
+    throw new ErrorHttp(400, 'Token de registro expirado. Solicita apoyo a un guardia.');
+  }
+
+  const usuarioGuardado = await prisma.usuario.update({
+    where: {
+      id: usuario.id
+    },
+    data: {
+      nombre: datos.nombre,
+      contrasenaHash: await bcrypt.hash(datos.contrasena, 12),
+      correoVerificado: true,
+      registroParcial: false,
+      tokenVerificacionCorreo: null,
+      tokenVerificacionCorreoExpiraEn: null,
+      versionSesion: {
+        increment: 1
+      }
+    }
+  });
+
+  await crearNotificacion({
+    usuarioId: usuarioGuardado.id,
+    titulo: 'Registro completado',
+    mensaje: 'Tu cuenta UBBike fue activada correctamente.',
+    tipo: TipoNotificacion.CUENTA
+  });
+
+  const correoCuentaVerificada = crearCorreoCuentaVerificada(usuarioGuardado.nombre);
+  await enviarCorreo({
+    para: usuarioGuardado.correo,
+    asunto: correoCuentaVerificada.asunto,
+    texto: correoCuentaVerificada.texto,
+    html: correoCuentaVerificada.html
+  });
+
+  await registrarAuditoria({
+    actorUsuarioId: usuarioGuardado.id,
+    accion: 'REGISTRO_PARCIAL_COMPLETADO',
+    entidad: 'usuarios',
+    entidadId: usuarioGuardado.id
+  });
+
+  return {
+    message: 'Registro completado correctamente',
     usuario: mapearUsuarioPublico(usuarioGuardado)
   };
 };
@@ -338,6 +442,14 @@ export const cambiarContrasena = async (token: string, contrasena: string) => {
     titulo: 'Contrasena actualizada',
     mensaje: 'Tu contrasena fue cambiada correctamente.',
     tipo: TipoNotificacion.CUENTA
+  });
+
+  const correoContrasenaActualizada = crearCorreoContrasenaActualizada(usuario.nombre);
+  await enviarCorreo({
+    para: usuario.correo,
+    asunto: correoContrasenaActualizada.asunto,
+    texto: correoContrasenaActualizada.texto,
+    html: correoContrasenaActualizada.html
   });
 
   await registrarAuditoria({

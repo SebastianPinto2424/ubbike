@@ -8,9 +8,13 @@ type FiltrosHistorial = {
   rol: string;
   q?: string;
   periodo?: 'DIA' | 'SEMANA' | 'MES' | 'ANIO';
-  tipo?: 'INGRESO' | 'SALIDA' | 'TODOS';
+  desde?: string;
+  hasta?: string;
+  tipo?: 'INGRESO' | 'RETIRO' | 'TODOS';
   estado?: 'CONFIRMADO' | 'DENEGADO' | 'TODOS';
   bicicleteroId?: string;
+  guardiaId?: string;
+  origen?: 'QR' | 'MANUAL' | 'TODOS';
   pagina?: number;
   limite?: number;
 };
@@ -56,11 +60,27 @@ const inicioPeriodo = (periodo?: 'DIA' | 'SEMANA' | 'MES' | 'ANIO') => {
 
 const puedeVerTodo = (rol: string) => rolesCentral.includes(rol);
 
+const normalizarFecha = (valor: string, finDia: boolean) => {
+  const esFechaSimple = /^\d{4}-\d{2}-\d{2}$/.test(valor);
+  const fecha = new Date(esFechaSimple ? `${valor}T00:00:00` : valor);
+
+  if (Number.isNaN(fecha.getTime())) {
+    throw new ErrorHttp(400, 'Filtro de fecha invalido');
+  }
+
+  if (esFechaSimple && finDia) {
+    fecha.setHours(23, 59, 59, 999);
+  }
+
+  return fecha;
+};
+
 const mapearMovimiento = (movimiento: MovimientoCompleto) => ({
   id: movimiento.id,
   tipo: movimiento.tipo,
   estado: movimiento.estado,
   motivoDenegacion: movimiento.motivoDenegacion,
+  comentarioGuardia: movimiento.comentarioGuardia,
   origen: movimiento.origen,
   creadoEn: movimiento.creadoEn,
   usuario: {
@@ -84,16 +104,15 @@ const mapearMovimiento = (movimiento: MovimientoCompleto) => ({
   }
 });
 
-export const listarMovimientos = async (filtros: FiltrosHistorial) => {
-  const limite = filtros.limite && filtros.limite > 0 ? filtros.limite : 100;
-  const pagina = filtros.pagina && filtros.pagina > 0 ? filtros.pagina : 1;
-  const saltar = (pagina - 1) * limite;
+const construirWhereMovimientos = (filtros: FiltrosHistorial) => {
   const condiciones: Prisma.MovimientoWhereInput[] = [];
 
   if (filtros.rol === RolUsuario.GUARDIA) {
     condiciones.push({ validadoPorGuardiaId: filtros.usuarioId });
   } else if (!puedeVerTodo(filtros.rol)) {
     condiciones.push({ usuarioId: filtros.usuarioId });
+  } else if (filtros.guardiaId) {
+    condiciones.push({ validadoPorGuardiaId: filtros.guardiaId });
   }
 
   if (filtros.q) {
@@ -106,6 +125,9 @@ export const listarMovimientos = async (filtros: FiltrosHistorial) => {
         { validadoPorGuardia: { nombre: { contains: q, mode: 'insensitive' } } },
         { validadoPorGuardia: { correo: { contains: q, mode: 'insensitive' } } },
         { bicicleta: { descripcion: { contains: q, mode: 'insensitive' } } },
+        { bicicleta: { marca: { contains: q, mode: 'insensitive' } } },
+        { bicicleta: { modelo: { contains: q, mode: 'insensitive' } } },
+        { bicicleta: { numeroSerie: { contains: q, mode: 'insensitive' } } },
         { bicicletero: { nombre: { contains: q, mode: 'insensitive' } } }
       ]
     });
@@ -119,17 +141,40 @@ export const listarMovimientos = async (filtros: FiltrosHistorial) => {
     condiciones.push({ estado: filtros.estado });
   }
 
+  if (filtros.origen && filtros.origen !== 'TODOS') {
+    condiciones.push({ origen: filtros.origen });
+  }
+
   if (filtros.bicicleteroId) {
     condiciones.push({ bicicleteroId: filtros.bicicleteroId });
   }
 
-  const desde = inicioPeriodo(filtros.periodo);
+  const fecha: Prisma.DateTimeFilter = {};
+  const desde = filtros.desde
+    ? normalizarFecha(filtros.desde, false)
+    : inicioPeriodo(filtros.periodo);
+  const hasta = filtros.hasta ? normalizarFecha(filtros.hasta, true) : null;
 
   if (desde) {
-    condiciones.push({ creadoEn: { gte: desde } });
+    fecha.gte = desde;
   }
 
-  const where: Prisma.MovimientoWhereInput = condiciones.length ? { AND: condiciones } : {};
+  if (hasta) {
+    fecha.lte = hasta;
+  }
+
+  if (fecha.gte || fecha.lte) {
+    condiciones.push({ creadoEn: fecha });
+  }
+
+  return condiciones.length ? { AND: condiciones } : {};
+};
+
+export const listarMovimientos = async (filtros: FiltrosHistorial) => {
+  const limite = filtros.limite && filtros.limite > 0 ? filtros.limite : 100;
+  const pagina = filtros.pagina && filtros.pagina > 0 ? filtros.pagina : 1;
+  const saltar = (pagina - 1) * limite;
+  const where = construirWhereMovimientos(filtros);
   const [movimientos, total] = await Promise.all([
     prisma.movimiento.findMany({
       where,
@@ -154,29 +199,85 @@ export const listarMovimientos = async (filtros: FiltrosHistorial) => {
   };
 };
 
-export const resumenHistorial = async (_usuarioId: string, rol: string) => {
-  if (!puedeVerTodo(rol)) {
+export const resumenHistorial = async (filtros: FiltrosHistorial) => {
+  if (!puedeVerTodo(filtros.rol)) {
     throw new ErrorHttp(403, 'No tienes permisos para ver el resumen central');
   }
 
+  const where = construirWhereMovimientos(filtros);
   const movimientos = await prisma.movimiento.findMany({
+    where,
     include: includeMovimientoCompleto
   });
 
-  const semana = inicioPeriodo('SEMANA')!;
-  const movimientosSemana = movimientos.filter((movimiento) => movimiento.creadoEn >= semana);
+  const contar = (predicado: (movimiento: MovimientoCompleto) => boolean) =>
+    movimientos.filter(predicado).length;
+  const agrupar = (selector: (movimiento: MovimientoCompleto) => string) =>
+    movimientos.reduce<Record<string, number>>((acumulado, movimiento) => {
+      const clave = selector(movimiento);
+      acumulado[clave] = (acumulado[clave] ?? 0) + 1;
+      return acumulado;
+    }, {});
 
   return {
-    movimientosSemana: movimientosSemana.length,
-    denegacionesSemana: movimientosSemana.filter((movimiento) => movimiento.estado === 'DENEGADO')
-      .length,
-    operacionesPorGuardia: movimientosSemana.reduce<Record<string, number>>(
-      (acumulado, movimiento) => {
-        const nombre = movimiento.validadoPorGuardia.nombre;
-        acumulado[nombre] = (acumulado[nombre] ?? 0) + 1;
-        return acumulado;
+    totalMovimientos: movimientos.length,
+    ingresos: contar((movimiento) => movimiento.tipo === 'INGRESO'),
+    retiros: contar((movimiento) => movimiento.tipo === 'RETIRO'),
+    confirmados: contar((movimiento) => movimiento.estado === 'CONFIRMADO'),
+    denegados: contar((movimiento) => movimiento.estado === 'DENEGADO'),
+    manuales: contar((movimiento) => movimiento.origen === 'MANUAL'),
+    qr: contar((movimiento) => movimiento.origen === 'QR'),
+    movimientosSemana: movimientos.length,
+    denegacionesSemana: contar((movimiento) => movimiento.estado === 'DENEGADO'),
+    operacionesPorGuardia: agrupar((movimiento) => movimiento.validadoPorGuardia.nombre),
+    operacionesPorBicicletero: agrupar((movimiento) => movimiento.bicicletero.nombre)
+  };
+};
+
+export const opcionesHistorial = async (rol: string) => {
+  if (!puedeVerTodo(rol)) {
+    throw new ErrorHttp(403, 'No tienes permisos para ver filtros centrales');
+  }
+
+  const [bicicleteros, guardias] = await Promise.all([
+    prisma.bicicletero.findMany({
+      where: {
+        activo: true
       },
-      {}
-    )
+      orderBy: {
+        nombre: 'asc'
+      }
+    }),
+    prisma.usuario.findMany({
+      where: {
+        rol: RolUsuario.GUARDIA,
+        cuentaActiva: true
+      },
+      orderBy: {
+        nombre: 'asc'
+      }
+    })
+  ]);
+
+  return {
+    bicicleteros: bicicleteros.map((bicicletero) => ({
+      id: bicicletero.id,
+      nombre: bicicletero.nombre,
+      ubicacion: bicicletero.ubicacion,
+      capacidad: bicicletero.capacidad,
+      ocupados: 0,
+      cuposDisponibles: bicicletero.capacidad,
+      porcentajeUso: 0
+    })),
+    guardias: guardias.map((guardia) => ({
+      id: guardia.id,
+      nombre: guardia.nombre,
+      correo: guardia.correo,
+      rut: guardia.rut,
+      rol: guardia.rol,
+      correoVerificado: guardia.correoVerificado,
+      registroParcial: guardia.registroParcial,
+      cuentaActiva: guardia.cuentaActiva
+    }))
   };
 };

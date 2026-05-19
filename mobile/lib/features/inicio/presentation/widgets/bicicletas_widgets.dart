@@ -86,10 +86,9 @@ class _TarjetaBicicletaUsuarioState extends State<_TarjetaBicicletaUsuario> {
                 ),
               ],
             ),
-            if (bicicleta.fotoUrl != null &&
-                bicicleta.fotoUrl!.startsWith('data:image')) ...[
+            if (bicicleta.fotoUrl != null && bicicleta.fotoUrl!.isNotEmpty) ...[
               const SizedBox(height: 14),
-              _ImagenBicicleta(fotoDataUrl: bicicleta.fotoUrl!),
+              _ImagenBicicleta(fotoReferencia: bicicleta.fotoUrl!),
             ],
             const SizedBox(height: 14),
             _InfoBicicletaGrid(bicicleta: bicicleta),
@@ -125,9 +124,9 @@ class _InfoBicicletaGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final usoActual = bicicleta.dentroBicicletero
-        ? bicicleta.bicicleteroActualNombre ?? 'En bicicletero'
-        : 'Fuera';
+    final estadoActual = bicicleta.dentroBicicletero
+        ? 'En ${bicicleta.bicicleteroActualNombre ?? 'bicicletero'}'
+        : 'Fuera del bicicletero';
     final datos = [
       _DatoBicicletaInfo(
         icono: Icons.sell_outlined,
@@ -158,8 +157,8 @@ class _InfoBicicletaGrid extends StatelessWidget {
         icono: bicicleta.dentroBicicletero
             ? Icons.lock_outline
             : Icons.lock_open_outlined,
-        etiqueta: 'Uso actual',
-        valor: usoActual,
+        etiqueta: 'Estado actual',
+        valor: estadoActual,
       ),
     ];
 
@@ -393,24 +392,30 @@ class _PanelGestionBicicleta extends StatelessWidget {
 }
 
 class _ImagenBicicleta extends StatelessWidget {
-  const _ImagenBicicleta({required this.fotoDataUrl});
+  const _ImagenBicicleta({required this.fotoReferencia});
 
-  final String fotoDataUrl;
+  final String fotoReferencia;
 
   @override
   Widget build(BuildContext context) {
-    final bytesFoto = _decodificarFotoDataUrl(fotoDataUrl);
+    final bytesFoto = _decodificarFotoDataUrl(fotoReferencia);
     if (bytesFoto == null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Container(
+        child: Image.network(
+          _resolverUrlFotoBicicleta(fotoReferencia),
           height: 150,
           width: double.infinity,
-          color: ColoresUbb.superficieAzulSuave,
-          child: const Icon(
-            Icons.pedal_bike_outlined,
-            color: ColoresUbb.azulApp,
-            size: 46,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            height: 150,
+            width: double.infinity,
+            color: ColoresUbb.superficieAzulSuave,
+            child: const Icon(
+              Icons.pedal_bike_outlined,
+              color: ColoresUbb.azulApp,
+              size: 46,
+            ),
           ),
         ),
       );

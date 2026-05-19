@@ -1,0 +1,68 @@
+@startuml
+title Casos de uso - Cuenta, autenticación y bicicletas
+
+left to right direction
+
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #F8FBFD
+  BorderColor #1E88C8
+  ArrowColor #0B2A44
+}
+
+actor "Usuario comunidad\nuniversitaria" as Usuario
+actor "Estudiante" as Estudiante
+actor "Funcionario" as Funcionario
+actor "Sistema de correo" as Correo
+
+Estudiante --|> Usuario
+Funcionario --|> Usuario
+
+rectangle "Sistema UBBike" {
+  package "Cuenta" {
+    usecase "Registrarse" as UC01
+    usecase "Verificar cuenta" as UC02
+    usecase "Iniciar sesión" as UC03
+    usecase "Consultar perfil" as UC04
+    usecase "Recuperar contraseña" as UC05
+    usecase "Cambiar contraseña" as UC06
+    usecase "Completar registro\nparcial" as UC07
+  }
+
+  package "Bicicletas" {
+    usecase "Registrar bicicleta" as UC08
+    usecase "Consultar bicicletas" as UC09
+    usecase "Editar bicicleta" as UC10
+    usecase "Eliminar bicicleta" as UC11
+    usecase "Seleccionar bicicleta\nactiva" as UC12
+    usecase "Consultar bicicleteros" as UC13
+  }
+
+  usecase "Enviar correo" as UC14
+}
+
+Usuario --> UC01
+Usuario --> UC02
+Usuario --> UC03
+Usuario --> UC04
+Usuario --> UC05
+Usuario --> UC06
+Usuario --> UC07
+Usuario --> UC08
+Usuario --> UC09
+Usuario --> UC10
+Usuario --> UC11
+Usuario --> UC12
+Usuario --> UC13
+
+UC14 -- Correo
+
+UC01 ..> UC14 : <<include>>
+UC02 ..> UC14 : <<include>>
+UC05 ..> UC14 : <<include>>
+UC06 ..> UC14 : <<include>>
+UC07 ..> UC14 : <<include>>
+
+@enduml

@@ -68,7 +68,7 @@ const buscarBicicletaParaQr = async (usuarioId: string, bicicletaId?: string) =>
 export const generarQrTemporal = async (datos: DatosGenerarQr) => {
   const bicicleta = await buscarBicicletaParaQr(datos.usuarioId, datos.bicicletaId);
   const tipo =
-    datos.tipo ?? (bicicleta.dentroBicicletero ? TipoMovimiento.SALIDA : TipoMovimiento.INGRESO);
+    datos.tipo ?? (bicicleta.dentroBicicletero ? TipoMovimiento.RETIRO : TipoMovimiento.INGRESO);
   const bicicletero = datos.bicicleteroId
     ? await prisma.bicicletero.findUnique({ where: { id: datos.bicicleteroId } })
     : bicicleta.bicicleteroActual;
@@ -81,7 +81,7 @@ export const generarQrTemporal = async (datos: DatosGenerarQr) => {
     throw new ErrorHttp(400, 'Selecciona un bicicletero para generar QR de ingreso');
   }
 
-  if (tipo === TipoMovimiento.SALIDA && !bicicleta.dentroBicicletero) {
+  if (tipo === TipoMovimiento.RETIRO && !bicicleta.dentroBicicletero) {
     throw new ErrorHttp(409, 'La bicicleta no registra ingreso activo');
   }
 
@@ -169,6 +169,27 @@ export const validarQrTemporal = async (token: string, contexto?: ContextoValida
   const codigo = await obtenerCodigoQrValido(token);
   await validarBicicleteroGuardia(codigo, contexto);
 
+  if (contexto) {
+    const marcado = await prisma.codigoQrTemporal.updateMany({
+      where: {
+        id: codigo.id,
+        usado: false,
+        OR: [
+          { escaneadoPorGuardiaId: null },
+          { escaneadoPorGuardiaId: contexto.validadorUsuarioId }
+        ]
+      },
+      data: {
+        escaneadoPorGuardiaId: contexto.validadorUsuarioId,
+        escaneadoEn: new Date()
+      }
+    });
+
+    if (marcado.count !== 1) {
+      throw new ErrorHttp(409, 'QR ya fue tomado por otro validador');
+    }
+  }
+
   return {
     valido: true,
     token: codigo.token,
@@ -229,6 +250,47 @@ export const obtenerCodigoQrValido = async (
   if (codigo.expiraEn.getTime() < Date.now()) {
     throw new ErrorHttp(410, 'QR expirado. Debe regenerarse');
   }
+
+  return codigo;
+};
+
+export const obtenerCodigoQrEscaneadoParaMovimiento = async (
+  token: string,
+  contexto: ContextoValidacionQr,
+  db: ClientePrisma = prisma
+): Promise<CodigoQrCompleto> => {
+  const codigo = await db.codigoQrTemporal.findFirst({
+    where: {
+      token
+    },
+    include: {
+      usuario: true,
+      bicicleta: {
+        include: {
+          bicicleteroActual: true
+        }
+      },
+      bicicletero: true
+    }
+  });
+
+  if (!codigo) {
+    throw new ErrorHttp(404, 'QR no encontrado');
+  }
+
+  if (codigo.usado) {
+    throw new ErrorHttp(409, 'QR ya fue usado o reemplazado');
+  }
+
+  if (!codigo.escaneadoPorGuardiaId) {
+    throw new ErrorHttp(409, 'Debes validar el QR antes de confirmar o denegar');
+  }
+
+  if (codigo.escaneadoPorGuardiaId !== contexto.validadorUsuarioId) {
+    throw new ErrorHttp(409, 'QR ya fue tomado por otro validador');
+  }
+
+  await validarBicicleteroGuardia(codigo, contexto);
 
   return codigo;
 };

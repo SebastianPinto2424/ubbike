@@ -16,6 +16,7 @@ export const mapearMovimiento = (movimiento: MovimientoCompleto) => ({
   tipo: movimiento.tipo,
   estado: movimiento.estado,
   motivoDenegacion: movimiento.motivoDenegacion,
+  comentarioGuardia: movimiento.comentarioGuardia,
   origen: movimiento.origen,
   creadoEn: movimiento.creadoEn,
   usuario: {

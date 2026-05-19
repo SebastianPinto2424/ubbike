@@ -1,6 +1,7 @@
 import { ErrorHttp } from '../../comun/errors/error-http';
 import { prisma } from '../../configuracion/prisma';
 import type { Bicicleta } from '../../generated/prisma/client';
+import { eliminarArchivoFotoBicicleta, guardarFotoBicicleta } from './foto-bicicleta.servicio';
 
 type DatosCrearBicicleta = {
   usuarioId: string;
@@ -24,6 +25,8 @@ type DatosActualizarBicicleta = {
   fotoUrl?: string | null;
 };
 
+const esFotoNueva = (fotoUrl?: string | null) => fotoUrl?.startsWith('data:image') === true;
+
 const mapearBicicleta = (
   bicicleta: Bicicleta & { bicicleteroActual?: { id: string; nombre: string } | null }
 ) => ({
@@ -35,6 +38,10 @@ const mapearBicicleta = (
   aro: bicicleta.aro,
   numeroSerie: bicicleta.numeroSerie,
   fotoUrl: bicicleta.fotoUrl,
+  fotoNombreArchivo: bicicleta.fotoNombreArchivo,
+  fotoMimeType: bicicleta.fotoMimeType,
+  fotoTamanoBytes: bicicleta.fotoTamanoBytes,
+  fotoActualizadaEn: bicicleta.fotoActualizadaEn,
   activa: bicicleta.activa,
   dentroBicicletero: bicicleta.dentroBicicletero,
   bicicleteroActual: bicicleta.bicicleteroActual
@@ -106,10 +113,10 @@ export const listarBicicletasUsuario = async (usuarioId: string) => {
         }
       }
     },
-    orderBy: {
-      activa: 'desc',
-      actualizadoEn: 'desc'
-    }
+    orderBy: [
+      { activa: 'desc' },
+      { actualizadoEn: 'desc' }
+    ]
   });
 
   return bicicletas.map(mapearBicicleta);
@@ -136,6 +143,10 @@ export const obtenerBicicletaActivaUsuario = async (usuarioId: string) => {
 };
 
 export const crearBicicleta = async (datos: DatosCrearBicicleta) => {
+  const fotoGuardada = esFotoNueva(datos.fotoUrl)
+    ? await guardarFotoBicicleta('bicicleta', datos.fotoUrl!)
+    : null;
+
   const totalBicicletas = await prisma.bicicleta.count({
     where: {
       usuarioId: datos.usuarioId,
@@ -152,7 +163,11 @@ export const crearBicicleta = async (datos: DatosCrearBicicleta) => {
       color: datos.color || null,
       aro: datos.aro || null,
       numeroSerie: datos.numeroSerie || null,
-      fotoUrl: datos.fotoUrl || null,
+      fotoUrl: fotoGuardada?.fotoUrl ?? null,
+      fotoNombreArchivo: fotoGuardada?.fotoNombreArchivo ?? null,
+      fotoMimeType: fotoGuardada?.fotoMimeType ?? null,
+      fotoTamanoBytes: fotoGuardada?.fotoTamanoBytes ?? null,
+      fotoActualizadaEn: fotoGuardada?.fotoActualizadaEn ?? null,
       activa: totalBicicletas === 0 || datos.activar === true,
       dentroBicicletero: false,
       bicicleteroActualId: null
@@ -199,7 +214,22 @@ export const actualizarBicicleta = async (
   }
 
   if (datos.fotoUrl !== undefined) {
-    bicicleta.fotoUrl = datos.fotoUrl || null;
+    if (!datos.fotoUrl) {
+      await eliminarArchivoFotoBicicleta(bicicleta.fotoNombreArchivo);
+      bicicleta.fotoUrl = null;
+      bicicleta.fotoNombreArchivo = null;
+      bicicleta.fotoMimeType = null;
+      bicicleta.fotoTamanoBytes = null;
+      bicicleta.fotoActualizadaEn = null;
+    } else if (esFotoNueva(datos.fotoUrl)) {
+      const fotoGuardada = await guardarFotoBicicleta(bicicleta.id, datos.fotoUrl);
+      await eliminarArchivoFotoBicicleta(bicicleta.fotoNombreArchivo);
+      bicicleta.fotoUrl = fotoGuardada.fotoUrl;
+      bicicleta.fotoNombreArchivo = fotoGuardada.fotoNombreArchivo;
+      bicicleta.fotoMimeType = fotoGuardada.fotoMimeType;
+      bicicleta.fotoTamanoBytes = fotoGuardada.fotoTamanoBytes;
+      bicicleta.fotoActualizadaEn = fotoGuardada.fotoActualizadaEn;
+    }
   }
 
   const guardada = await prisma.bicicleta.update({
@@ -213,7 +243,11 @@ export const actualizarBicicleta = async (
       color: bicicleta.color,
       aro: bicicleta.aro,
       numeroSerie: bicicleta.numeroSerie,
-      fotoUrl: bicicleta.fotoUrl
+      fotoUrl: bicicleta.fotoUrl,
+      fotoNombreArchivo: bicicleta.fotoNombreArchivo,
+      fotoMimeType: bicicleta.fotoMimeType,
+      fotoTamanoBytes: bicicleta.fotoTamanoBytes,
+      fotoActualizadaEn: bicicleta.fotoActualizadaEn
     },
     include: {
       bicicleteroActual: {
@@ -241,6 +275,8 @@ export const eliminarBicicleta = async (usuarioId: string, bicicletaId: string) 
       activa: false
     }
   });
+
+  await eliminarArchivoFotoBicicleta(bicicleta.fotoNombreArchivo);
 
   if (estabaActiva) {
     const siguiente = await prisma.bicicleta.findFirst({

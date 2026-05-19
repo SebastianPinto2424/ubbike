@@ -12,6 +12,7 @@ class MovimientoApp {
     required this.bicicleteroNombre,
     required this.guardiaNombre,
     this.motivoDenegacion,
+    this.comentarioGuardia,
   });
 
   final String id;
@@ -26,6 +27,7 @@ class MovimientoApp {
   final String bicicleteroNombre;
   final String guardiaNombre;
   final String? motivoDenegacion;
+  final String? comentarioGuardia;
 
   factory MovimientoApp.desdeJson(Map<String, dynamic> json) {
     final usuario = json['usuario'] as Map<String, dynamic>;
@@ -46,6 +48,7 @@ class MovimientoApp {
       bicicleteroNombre: bicicletero['nombre'] as String,
       guardiaNombre: guardia['nombre'] as String,
       motivoDenegacion: json['motivoDenegacion'] as String?,
+      comentarioGuardia: json['comentarioGuardia'] as String?,
     );
   }
 }

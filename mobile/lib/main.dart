@@ -40,6 +40,14 @@ class AplicacionUBBike extends StatelessWidget {
       );
     }
 
+    if (uri.path == '/completar-registro') {
+      return MaterialPageRoute(
+        builder: (_) => PantallaCompletarRegistro(
+          token: uri.queryParameters['token'] ?? '',
+        ),
+      );
+    }
+
     return MaterialPageRoute(builder: (_) => const PantallaLogin());
   }
 }

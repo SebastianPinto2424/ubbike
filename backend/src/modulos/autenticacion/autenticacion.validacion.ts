@@ -55,6 +55,12 @@ export const esquemaVerificarCorreo = Joi.object({
   token: Joi.string().trim().required()
 });
 
+export const esquemaCompletarRegistro = Joi.object({
+  token: Joi.string().trim().required(),
+  nombre: Joi.string().trim().min(2).max(120).required(),
+  contrasena: esquemaContrasena
+});
+
 export const esquemaCambioContrasena = Joi.object({
   token: Joi.string().trim().required(),
   contrasena: esquemaContrasena

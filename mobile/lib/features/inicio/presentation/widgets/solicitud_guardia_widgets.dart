@@ -5,20 +5,27 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
     required this.solicitud,
     this.mostrarSolicitante = false,
     this.permitirNotificarCentral = false,
+    this.permitirNotificarUsuario = false,
     this.mostrarAccionesGuardia = true,
     this.onActualizar,
+    this.onNotificarGuardia,
   });
 
   final SolicitudGuardiaApp solicitud;
   final bool mostrarSolicitante;
   final bool permitirNotificarCentral;
+  final bool permitirNotificarUsuario;
   final bool mostrarAccionesGuardia;
   final Future<void> Function(String estado)? onActualizar;
+  final Future<void> Function()? onNotificarGuardia;
 
   @override
   Widget build(BuildContext context) {
     final cerrada =
         solicitud.estado == 'RESUELTA' || solicitud.estado == 'CANCELADA';
+    final mensaje = solicitud.mensaje?.trim();
+    final etiquetaMensaje =
+        mostrarSolicitante ? 'Mensaje del solicitante' : 'Mensaje enviado';
 
     return Card(
       child: Padding(
@@ -46,7 +53,7 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '${_etiquetaTipoSolicitud(solicitud.tipo)} | ${_formatearFecha(solicitud.creadaEn)}',
+              _etiquetaTipoSolicitud(solicitud.tipo),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -58,49 +65,100 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
                     color: ColoresUbb.textoSecundario,
                   ),
             ),
+            const SizedBox(height: 8),
+            _FilaDato(
+              etiqueta: 'Fecha solicitud',
+              valor: _formatearFecha(solicitud.creadaEn),
+            ),
+            _FilaDato(
+              etiqueta: 'Hora solicitud',
+              valor: _formatearHora(solicitud.creadaEn),
+            ),
             if (mostrarSolicitante) ...[
               const SizedBox(height: 8),
               _FilaDato(
                 etiqueta: 'Solicitante',
-                valor:
-                    '${solicitud.solicitante.nombre} | ${solicitud.solicitante.correo}',
+                valor: solicitud.solicitante.nombre,
+              ),
+              _FilaDato(
+                etiqueta: 'Correo solicitante',
+                valor: solicitud.solicitante.correo,
+                anchoCompleto: true,
               ),
             ],
             if (solicitud.guardiaAsignado != null) ...[
               const SizedBox(height: 8),
               _FilaDato(
-                etiqueta: 'Guardia',
+                etiqueta: 'Guardia asignado',
                 valor: solicitud.guardiaAsignado!.nombre,
               ),
             ],
             if (solicitud.notificadaGuardiaEn != null) ...[
               const SizedBox(height: 8),
               _FilaDato(
-                etiqueta: 'Notificado',
-                valor: _formatearFecha(solicitud.notificadaGuardiaEn!),
+                etiqueta: 'Guardia notificado',
+                valor: _formatearFechaHoraSolicitud(
+                  solicitud.notificadaGuardiaEn!,
+                ),
               ),
             ],
-            if (solicitud.acuseReciboEn != null) ...[
+            if (solicitud.notificacionesGuardia > 0) ...[
               const SizedBox(height: 8),
               _FilaDato(
-                etiqueta: 'Acuse recibo',
-                valor: _formatearFecha(solicitud.acuseReciboEn!),
+                etiqueta: 'Avisos enviados',
+                valor:
+                    '${solicitud.notificacionesGuardia} ${solicitud.notificacionesGuardia == 1 ? 'vez' : 'veces'}',
               ),
             ],
-            if (solicitud.guardiasAsignados.isNotEmpty) ...[
+            if (solicitud.ultimaNotificacionUsuarioEn != null) ...[
               const SizedBox(height: 8),
               _FilaDato(
-                etiqueta: 'Guardias asignados',
+                etiqueta: 'Ultimo recordatorio',
+                valor: _formatearFechaHoraSolicitud(
+                  solicitud.ultimaNotificacionUsuarioEn!,
+                ),
+              ),
+            ],
+            if (solicitud.respondidaPorGuardiaEn != null) ...[
+              const SizedBox(height: 8),
+              _FilaDato(
+                etiqueta: 'Respuesta del guardia',
+                valor: _formatearFechaHoraSolicitud(
+                  solicitud.respondidaPorGuardiaEn!,
+                ),
+              ),
+            ],
+            if (solicitud.enCaminoEn != null) ...[
+              const SizedBox(height: 8),
+              _FilaDato(
+                etiqueta: 'Guardia en camino desde',
+                valor: _formatearFechaHoraSolicitud(solicitud.enCaminoEn!),
+              ),
+            ],
+            if (solicitud.resueltaEn != null) ...[
+              const SizedBox(height: 8),
+              _FilaDato(
+                etiqueta:
+                    solicitud.estado == 'CANCELADA' ? 'Cancelada' : 'Resuelta',
+                valor: _formatearFechaHoraSolicitud(solicitud.resueltaEn!),
+              ),
+            ],
+            if (solicitud.guardiaAsignado == null &&
+                solicitud.guardiasAsignados.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _FilaDato(
+                etiqueta: 'Guardias notificados',
                 valor: solicitud.guardiasAsignados
                     .map((guardia) => guardia.nombre)
                     .join(', '),
+                anchoCompleto: true,
               ),
             ],
-            if (solicitud.mensaje != null && solicitud.mensaje!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                solicitud.mensaje!,
-                style: Theme.of(context).textTheme.bodyMedium,
+            if (mensaje != null && mensaje.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _BloqueMensajeSolicitud(
+                titulo: etiquetaMensaje,
+                mensaje: mensaje,
               ),
             ],
             if (!cerrada && onActualizar != null) ...[
@@ -109,6 +167,18 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
                 spacing: 10,
                 runSpacing: 10,
                 children: [
+                  if (permitirNotificarUsuario && onNotificarGuardia != null)
+                    OutlinedButton.icon(
+                      onPressed: solicitud.puedeNotificarGuardiaUsuario
+                          ? () => _notificarGuardia(context)
+                          : null,
+                      icon: const Icon(Icons.notifications_active_outlined),
+                      label: Text(
+                        solicitud.notificacionesGuardia > 0
+                            ? 'Recordar al guardia'
+                            : 'Avisar al guardia',
+                      ),
+                    ),
                   if (permitirNotificarCentral &&
                       solicitud.guardiaAsignado != null)
                     OutlinedButton.icon(
@@ -120,26 +190,36 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
                     ),
                   if (mostrarAccionesGuardia) ...[
                     OutlinedButton.icon(
-                      onPressed: solicitud.estado == 'VISTA'
-                          ? null
-                          : () => _actualizar(context, 'VISTA'),
-                      icon: const Icon(Icons.mark_email_read_outlined),
-                      label: const Text('Acusar recibo'),
-                    ),
-                    OutlinedButton.icon(
                       onPressed: solicitud.estado == 'EN_CAMINO'
                           ? null
                           : () => _actualizar(context, 'EN_CAMINO'),
                       icon: const Icon(Icons.directions_walk),
-                      label: const Text('En camino'),
+                      label: const Text('Voy en camino'),
                     ),
                     ElevatedButton.icon(
                       onPressed: () => _actualizar(context, 'RESUELTA'),
                       icon: const Icon(Icons.check_circle_outline),
-                      label: const Text('Resolver'),
+                      label: const Text('Marcar resuelta'),
                     ),
                   ],
                 ],
+              ),
+            ],
+            if (!cerrada &&
+                onActualizar == null &&
+                permitirNotificarUsuario &&
+                onNotificarGuardia != null) ...[
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: solicitud.puedeNotificarGuardiaUsuario
+                    ? () => _notificarGuardia(context)
+                    : null,
+                icon: const Icon(Icons.notifications_active_outlined),
+                label: Text(
+                  solicitud.guardiaAsignado == null
+                      ? 'Central avisada'
+                      : 'Recordar al guardia',
+                ),
               ),
             ],
           ],
@@ -165,6 +245,60 @@ class _TarjetaSolicitudGuardia extends StatelessWidget {
       }
     }
   }
+
+  Future<void> _notificarGuardia(BuildContext context) async {
+    try {
+      await onNotificarGuardia?.call();
+    } on ExcepcionApi catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.mensaje)),
+        );
+      }
+    }
+  }
+}
+
+class _BloqueMensajeSolicitud extends StatelessWidget {
+  const _BloqueMensajeSolicitud({
+    required this.titulo,
+    required this.mensaje,
+  });
+
+  final String titulo;
+  final String mensaje;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ColoresUbb.azulApp.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: ColoresUbb.borde),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            titulo,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: ColoresUbb.textoSecundario,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            mensaje,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 String _etiquetaTipoSolicitud(String tipo) {
@@ -178,25 +312,27 @@ String _etiquetaTipoSolicitud(String tipo) {
 String _textoBotonNotificarGuardia(SolicitudGuardiaApp solicitud) {
   final segundos = solicitud.segundosParaNotificarGuardia;
 
-  if (solicitud.acuseReciboEn != null ||
-      solicitud.estado == 'VISTA' ||
+  if (solicitud.respondidaPorGuardiaEn != null ||
       solicitud.estado == 'EN_CAMINO') {
-    return 'Acuse recibido';
+    return solicitud.estado == 'EN_CAMINO'
+        ? 'Guardia en camino'
+        : 'Guardia respondio';
   }
 
   if (segundos != null && segundos > 0) {
-    return 'Re-notificar en ${segundos}s';
+    return 'Reenviar en ${segundos}s';
   }
 
-  return 'Notificar guardia';
+  return solicitud.notificacionesGuardia > 0
+      ? 'Reenviar aviso'
+      : 'Avisar guardia';
 }
 
 String _etiquetaEstadoSolicitud(String estado) {
   return switch (estado) {
     'PENDIENTE' => 'Pendiente',
-    'NOTIFICADA' => 'Notificada',
-    'VISTA' => 'Vista',
-    'EN_CAMINO' => 'En camino',
+    'NOTIFICADA' => 'Guardia notificado',
+    'EN_CAMINO' => 'Guardia en camino',
     'RESUELTA' => 'Resuelta',
     'CANCELADA' => 'Cancelada',
     _ => estado,
@@ -207,10 +343,13 @@ Color _colorEstadoSolicitud(String estado) {
   return switch (estado) {
     'PENDIENTE' => ColoresUbb.rojoInstitucional,
     'NOTIFICADA' => ColoresUbb.azulApp,
-    'VISTA' => ColoresUbb.turquesa,
-    'EN_CAMINO' => ColoresUbb.azulApp,
+    'EN_CAMINO' => ColoresUbb.turquesa,
     'RESUELTA' => ColoresUbb.exito,
     'CANCELADA' => ColoresUbb.textoSecundario,
     _ => ColoresUbb.azulInstitucional,
   };
+}
+
+String _formatearFechaHoraSolicitud(DateTime fecha) {
+  return '${_formatearFecha(fecha)} ${_formatearHora(fecha)}';
 }

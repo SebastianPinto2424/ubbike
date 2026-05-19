@@ -25,6 +25,16 @@ class ClienteApi {
     return _procesarRespuesta(respuesta);
   }
 
+  Future<String> getTexto(String ruta) async {
+    final respuesta = await http.get(_uri(ruta), headers: _headers());
+
+    if (respuesta.statusCode >= 400) {
+      _procesarRespuesta(respuesta);
+    }
+
+    return respuesta.body;
+  }
+
   Future<Map<String, dynamic>> post(
     String ruta, {
     Map<String, dynamic>? body,

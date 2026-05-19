@@ -10,7 +10,7 @@ export const validarReglaMovimiento = (bicicleta: BicicletaConEstado, tipo: Tipo
     throw new ErrorHttp(409, 'La bicicleta ya registra ingreso activo');
   }
 
-  if (tipo === TipoMovimiento.SALIDA && !bicicleta.dentroBicicletero) {
+  if (tipo === TipoMovimiento.RETIRO && !bicicleta.dentroBicicletero) {
     throw new ErrorHttp(409, 'La bicicleta no registra ingreso activo');
   }
 };

@@ -3,11 +3,11 @@
 ## Flujo funcional del MVP
 
 1. El usuario solicita registro con correo institucional.
-2. El sistema asigna rol automaticamente segun dominio de correo:
+2. El sistema asigna rol automáticamente según dominio de correo:
    - `@alumnos.ubiobio.cl`: estudiante.
    - `@ubiobio.cl`: funcionario.
 3. El usuario verifica su correo mediante enlace seguro.
-4. El usuario inicia sesion y registra una o mas bicicletas.
+4. El usuario inicia sesión y registra una o más bicicletas.
 5. El usuario selecciona una bicicleta activa.
 6. Para ingreso, selecciona bicicletero y genera QR temporal.
 7. Para retiro, genera QR asociado al bicicletero donde la bicicleta se encuentra registrada.
@@ -16,13 +16,13 @@
 10. El guardia confirma o deniega ingreso/retiro.
 11. Si el QR no puede usarse, el guardia registra acceso manual con correo institucional o RUT.
 12. Usuarios pueden solicitar apoyo si no ven al guardia o requieren servicio.
-13. Guardia y central reciben alertas y notificaciones dentro de la aplicacion.
+13. Guardia y central reciben alertas y notificaciones dentro de la aplicación.
 14. Central y administrador revisan historial, dashboard, solicitudes y operaciones por guardia.
-15. Administrador puede gestionar usuarios, roles, estado de cuenta y verificacion de correo.
+15. Administrador puede gestionar usuarios, roles, estado de cuenta y verificación de correo.
 
 ## Endpoints principales
 
-Autenticacion:
+Autenticación:
 
 ```text
 POST /autenticacion/registro
@@ -160,13 +160,13 @@ El modelo relacional se documenta en `docs/modelo-relacional.md`.
 El backend considera:
 
 - Usuarios con roles `ESTUDIANTE`, `FUNCIONARIO`, `GUARDIA`, `ADMIN_CENTRAL` y `ADMINISTRADOR`.
-- Bicicleteros activos con capacidad y ocupacion.
+- Bicicleteros activos con capacidad y ocupación.
 - Bicicletas asociadas a usuarios.
 - QR temporales asociados a usuario, bicicleta, tipo de movimiento y bicicletero.
 - Asignaciones activas de guardia a bicicletero.
 - Movimientos de ingreso/retiro con estado confirmado o denegado.
 - Solicitudes de guardia.
 - Notificaciones por usuario.
-- Auditoria de acciones relevantes.
+- Auditoría de acciones relevantes.
 
-Los nombres de modelos, modulos y funciones del backend se mantienen en espanol cuando no chocan con convenciones propias de Node, Express o Prisma.
+Los nombres de modelos, módulos y funciones del backend se mantienen en español cuando no chocan con convenciones propias de Node, Express o Prisma.

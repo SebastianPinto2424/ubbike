@@ -10,12 +10,14 @@ class VistaEscanerQrGuardia extends StatefulWidget {
 class _VistaEscanerQrGuardiaState extends State<VistaEscanerQrGuardia> {
   final accesoApi = AccesoApi();
   final tokenController = TextEditingController();
+  final comentarioController = TextEditingController();
   QrValidadoApp? qrLeido;
   bool cargando = false;
 
   @override
   void dispose() {
     tokenController.dispose();
+    comentarioController.dispose();
     super.dispose();
   }
 
@@ -102,6 +104,17 @@ class _VistaEscanerQrGuardiaState extends State<VistaEscanerQrGuardia> {
                   ),
                   const SizedBox(height: 14),
                   _FichaVerificacionBicicleta(qr: qr),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: comentarioController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Comentario opcional del guardia',
+                      hintText: 'Ej: Usuario posee U-Lock',
+                      alignLabelWithHint: true,
+                      prefixIcon: Icon(Icons.sticky_note_2_outlined),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () => _confirmarQr(qr),
@@ -141,7 +154,10 @@ class _VistaEscanerQrGuardiaState extends State<VistaEscanerQrGuardia> {
     try {
       final qr = await accesoApi.validarQr(tokenController.text.trim());
       if (mounted) {
-        setState(() => qrLeido = qr);
+        setState(() {
+          qrLeido = qr;
+          comentarioController.clear();
+        });
       }
     } on ExcepcionApi catch (error) {
       if (mounted) {
@@ -159,10 +175,14 @@ class _VistaEscanerQrGuardiaState extends State<VistaEscanerQrGuardia> {
 
   Future<void> _confirmarQr(QrValidadoApp qr) async {
     try {
-      final movimiento = await accesoApi.confirmarQr(qr.token);
+      final movimiento = await accesoApi.confirmarQr(
+        qr.token,
+        comentario: comentarioController.text.trim(),
+      );
       if (mounted) {
         setState(() => qrLeido = null);
         tokenController.clear();
+        comentarioController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -232,6 +252,7 @@ class _VistaEscanerQrGuardiaState extends State<VistaEscanerQrGuardia> {
                       if (mounted) {
                         setState(() => qrLeido = null);
                         tokenController.clear();
+                        comentarioController.clear();
                         mensajero.showSnackBar(
                           const SnackBar(content: Text('Operacion denegada')),
                         );

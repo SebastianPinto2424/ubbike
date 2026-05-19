@@ -401,6 +401,33 @@ class _SelectorBicicleteroGuardiaPerfilState
     }
   }
 
+  void _mostrarSelectorBicicletero() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (context) {
+        return ListView.builder(
+          shrinkWrap: true,
+          itemCount: bicicleteros.length,
+          itemBuilder: (context, index) {
+            final bicicletero = bicicleteros[index];
+            return ListTile(
+              leading: const Icon(Icons.location_on_outlined, color: ColoresUbb.azulApp),
+              title: Text(bicicletero.nombre),
+              subtitle: Text('${bicicletero.cuposDisponibles} cupos disponibles'),
+              selected: bicicleteroSeleccionado?.id == bicicletero.id,
+              onTap: () {
+                setState(() => bicicleteroSeleccionado = bicicletero);
+                Navigator.pop(context);
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (cargando) {
@@ -426,26 +453,27 @@ class _SelectorBicicleteroGuardiaPerfilState
               ?.copyWith(fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 10),
-        DropdownButtonFormField<BicicleteroApp>(
-          initialValue: bicicleteroSeleccionado,
-          decoration: const InputDecoration(
-            labelText: 'Bicicletero que gestionaras',
-            prefixIcon: Icon(Icons.location_on_outlined),
-          ),
-          items: bicicleteros
-              .map(
-                (bicicletero) => DropdownMenuItem(
-                  value: bicicletero,
-                  child: Text(
-                    '${bicicletero.nombre} (${bicicletero.cuposDisponibles} cupos)',
-                    overflow: TextOverflow.ellipsis,
+        InkWell(
+          onTap: guardando ? null : _mostrarSelectorBicicletero,
+          borderRadius: BorderRadius.circular(8),
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: 'Bicicletero que gestionaras',
+              prefixIcon: Icon(Icons.location_on_outlined),
+              suffixIcon: Icon(Icons.arrow_drop_down),
+            ),
+            child: Text(
+              bicicleteroSeleccionado != null
+                  ? '${bicicleteroSeleccionado!.nombre} (${bicicleteroSeleccionado!.cuposDisponibles} cupos)'
+                  : 'Selecciona un bicicletero',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.normal,
+                    fontSize: 16,
                   ),
-                ),
-              )
-              .toList(),
-          onChanged: guardando
-              ? null
-              : (valor) => setState(() => bicicleteroSeleccionado = valor),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ),
         const SizedBox(height: 10),
         ElevatedButton.icon(

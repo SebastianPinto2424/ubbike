@@ -87,6 +87,37 @@ class _VistaSolicitarGuardiaState extends State<VistaSolicitarGuardia> {
     }
   }
 
+  Future<void> _notificarGuardia(SolicitudGuardiaApp solicitud) async {
+    if (enviando) {
+      return;
+    }
+
+    setState(() => enviando = true);
+
+    try {
+      await solicitudGuardiaApi.notificarGuardia(solicitudId: solicitud.id);
+
+      if (mounted) {
+        setState(() {
+          futuroSolicitudes = solicitudGuardiaApi.listarSolicitudes();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Guardia notificado nuevamente')),
+        );
+      }
+    } on ExcepcionApi catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.mensaje)),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => enviando = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -95,7 +126,7 @@ class _VistaSolicitarGuardiaState extends State<VistaSolicitarGuardia> {
         const _EncabezadoSeccion(
           titulo: 'Guardia',
           detalle:
-              'Solicita apoyo si el guardia no esta visible o necesitas atencion.',
+              'Solicita apoyo y revisa si el guardia ya fue notificado o va en camino.',
           icono: Icons.support_agent,
         ),
         const SizedBox(height: 24),
@@ -184,7 +215,8 @@ class _VistaSolicitarGuardiaState extends State<VistaSolicitarGuardia> {
                     controller: mensajeController,
                     maxLines: 3,
                     decoration: const InputDecoration(
-                      labelText: 'Mensaje opcional',
+                      labelText: 'Mensaje para el guardia (opcional)',
+                      hintText: 'Ejemplo: estoy esperando en el acceso norte.',
                       alignLabelWithHint: true,
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.all(16),
@@ -210,7 +242,7 @@ class _VistaSolicitarGuardiaState extends State<VistaSolicitarGuardia> {
                         )
                       : const Icon(Icons.send_outlined, color: Colors.white),
                   label: Text(
-                    enviando ? 'Enviando...' : 'Enviar solicitud a central',
+                    enviando ? 'Enviando...' : 'Solicitar atencion',
                     style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -258,7 +290,12 @@ class _VistaSolicitarGuardiaState extends State<VistaSolicitarGuardia> {
                   .map(
                     (solicitud) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _TarjetaSolicitudGuardia(solicitud: solicitud),
+                      child: _TarjetaSolicitudGuardia(
+                        solicitud: solicitud,
+                        mostrarAccionesGuardia: false,
+                        permitirNotificarUsuario: true,
+                        onNotificarGuardia: () => _notificarGuardia(solicitud),
+                      ),
                     ),
                   )
                   .toList(),

@@ -144,6 +144,8 @@ class _TarjetaNotificacion extends StatelessWidget {
         return Icons.security_outlined;
       case 'MOVIMIENTO':
         return Icons.history;
+      case 'INCIDENCIA':
+        return Icons.report_problem_outlined;
       default:
         return Icons.notifications_outlined;
     }

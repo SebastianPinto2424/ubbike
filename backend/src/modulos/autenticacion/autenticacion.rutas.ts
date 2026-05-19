@@ -4,6 +4,7 @@ import { limitarIntentos } from '../../comun/middlewares/limitador-intentos.midd
 import { validarCuerpo } from '../../comun/middlewares/validar-cuerpo.middleware';
 import {
   cambiarContrasena,
+  completarRegistro,
   iniciarSesion,
   obtenerPerfil,
   registrar,
@@ -12,6 +13,7 @@ import {
 } from './autenticacion.controlador';
 import {
   esquemaCambioContrasena,
+  esquemaCompletarRegistro,
   esquemaLogin,
   esquemaRegistro,
   esquemaSolicitudCambioContrasena,
@@ -46,6 +48,11 @@ rutasAutenticacion.post(
   '/verificar-correo',
   validarCuerpo(esquemaVerificarCorreo),
   verificarCorreo
+);
+rutasAutenticacion.post(
+  '/completar-registro',
+  validarCuerpo(esquemaCompletarRegistro),
+  completarRegistro
 );
 rutasAutenticacion.post(
   '/solicitar-cambio-contrasena',

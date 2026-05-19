@@ -1,6 +1,6 @@
 # Modelo Relacional UBBike
 
-Este documento resume el MR del sistema. La fuente tecnica del esquema esta en
+Este documento resume el MR del sistema. La fuente técnica del esquema está en
 `backend/prisma/schema.prisma`, con migraciones versionadas en
 `backend/prisma/migrations`.
 
@@ -14,8 +14,10 @@ erDiagram
   USUARIOS ||--o{ ASIGNACIONES_GUARDIAS : tiene
   USUARIOS ||--o{ SOLICITUDES_GUARDIA : solicita
   USUARIOS ||--o{ SOLICITUDES_GUARDIA : atiende
+  USUARIOS ||--o{ CODIGOS_QR_TEMPORALES : escanea_como_guardia
   USUARIOS ||--o{ NOTIFICACIONES : recibe
   USUARIOS ||--o{ INCIDENCIAS : reporta
+  USUARIOS ||--o{ INCIDENCIAS : gestiona
   USUARIOS ||--o{ AUDITORIA_EVENTOS : ejecuta
 
   BICICLETAS ||--o{ MOVIMIENTOS : genera
@@ -36,12 +38,15 @@ erDiagram
     enum rol
     varchar contrasena_hash
     boolean correo_verificado
+    boolean registro_parcial
     boolean cuenta_activa
     integer version_sesion
     varchar token_verificacion_correo
     timestamptz token_verificacion_correo_expira_en
     varchar token_cambio_contrasena
     timestamptz token_cambio_contrasena_expira_en
+    timestamptz creado_en
+    timestamptz actualizado_en
   }
 
   BICICLETAS {
@@ -55,8 +60,15 @@ erDiagram
     varchar aro
     varchar numero_serie
     text foto_url
+    varchar foto_nombre_archivo
+    varchar foto_mime_type
+    integer foto_tamano_bytes
+    timestamptz foto_actualizada_en
     boolean activa
     boolean dentro_bicicletero
+    timestamptz creado_en
+    timestamptz actualizado_en
+    timestamptz eliminado_en
   }
 
   BICICLETEROS {
@@ -65,30 +77,8 @@ erDiagram
     varchar ubicacion
     integer capacidad
     boolean activo
-  }
-
-  MOVIMIENTOS {
-    uuid id PK
-    uuid bicicleta_id FK
-    uuid usuario_id FK
-    uuid bicicletero_id FK
-    uuid validado_por_guardia_id FK
-    enum tipo
-    enum estado
-    text motivo_denegacion
-    varchar origen
     timestamptz creado_en
-  }
-
-  CODIGOS_QR_TEMPORALES {
-    uuid id PK
-    varchar token UK
-    uuid usuario_id FK
-    uuid bicicleta_id FK
-    uuid bicicletero_id FK
-    enum tipo
-    timestamptz expira_en
-    boolean usado
+    timestamptz actualizado_en
   }
 
   ASIGNACIONES_GUARDIAS {
@@ -98,6 +88,8 @@ erDiagram
     timestamptz inicia_en
     timestamptz termina_en
     boolean activa
+    timestamptz creada_en
+    timestamptz actualizada_en
   }
 
   SOLICITUDES_GUARDIA {
@@ -109,8 +101,41 @@ erDiagram
     enum estado
     text mensaje
     timestamptz notificada_guardia_en
-    timestamptz acuse_recibo_en
+    timestamptz ultima_notificacion_usuario_en
+    integer notificaciones_guardia
+    timestamptz respondida_por_guardia_en
+    timestamptz en_camino_en
     timestamptz resuelta_en
+    timestamptz creada_en
+    timestamptz actualizada_en
+  }
+
+  MOVIMIENTOS {
+    uuid id PK
+    uuid bicicleta_id FK
+    uuid usuario_id FK
+    uuid bicicletero_id FK
+    uuid validado_por_guardia_id FK
+    enum tipo
+    enum estado
+    text motivo_denegacion
+    text comentario_guardia
+    enum origen
+    timestamptz creado_en
+  }
+
+  CODIGOS_QR_TEMPORALES {
+    uuid id PK
+    varchar token UK
+    uuid usuario_id FK
+    uuid bicicleta_id FK
+    uuid bicicletero_id FK
+    uuid escaneado_por_guardia_id FK
+    enum tipo
+    timestamptz expira_en
+    boolean usado
+    timestamptz escaneado_en
+    timestamptz creado_en
   }
 
   NOTIFICACIONES {
@@ -121,15 +146,22 @@ erDiagram
     enum tipo
     boolean leida
     jsonb datos
+    timestamptz creada_en
   }
 
   INCIDENCIAS {
     uuid id PK
-    uuid usuario_id FK
+    uuid reportada_por_usuario_id FK
     uuid bicicletero_id FK
     uuid bicicleta_id FK
+    uuid gestionada_por_usuario_id FK
+    enum tipo
     text descripcion
     enum estado
+    text respuesta
+    timestamptz resuelta_en
+    timestamptz creada_en
+    timestamptz actualizada_en
   }
 
   AUDITORIA_EVENTOS {
@@ -145,15 +177,64 @@ erDiagram
   }
 ```
 
-## Reglas principales
+## Reglas Principales
 
-- Un usuario puede tener muchas bicicletas, pero solo una deberia estar activa.
+- Un usuario puede tener muchas bicicletas, pero solo una debe estar activa. La
+  base de datos refuerza esta regla con un índice único parcial sobre
+  `usuario_id` cuando `activa = true` y `eliminado_en IS NULL`.
 - Cada QR temporal pertenece a un usuario, una bicicleta y opcionalmente a un
-  bicicletero.
+  bicicletero. Cuando el guardia lo escanea, se registra
+  `escaneado_por_guardia_id` y `escaneado_en`.
 - Cada movimiento guarda usuario, bicicleta, bicicletero y guardia que valida.
+  El tipo usa `INGRESO` o `RETIRO`, y el origen usa `QR` o `MANUAL`.
 - El estado real de una bicicleta se guarda en `dentro_bicicletero` y
   `bicicletero_actual_id`.
-- Las solicitudes de guardia registran quien pidio ayuda, en que bicicletero,
-  que guardia fue asignado y el estado de atencion.
-- Los eventos criticos quedan registrados en `auditoria_eventos` para trazabilidad
-  operativa y revision posterior.
+- La foto de una bicicleta se modela como atributo de `bicicletas`, porque el
+  sistema requiere una sola foto principal por bicicleta. El archivo se guarda
+  fuera de la base de datos y en la tabla se persisten URL y metadatos.
+- Las solicitudes de guardia registran quién pidió ayuda, en qué bicicletero,
+  qué guardia fue asignado, cuántas veces se notificó, cuándo respondió el
+  guardia y cuándo quedó en camino o resuelta.
+- Las incidencias registran problemas operativos del bicicletero, bicicleta, QR,
+  movimientos o datos de usuario. Cualquier actor autenticado puede reportar.
+  Los guardias pueden ver las incidencias asociadas a su bicicletero asignado,
+  pero el cambio formal de estado queda reservado a administración/central.
+  Para cerrar una incidencia como `RESUELTA` o `DESCARTADA`, se debe registrar
+  una respuesta de gestión.
+- Los eventos críticos quedan registrados en `auditoria_eventos` para
+  trazabilidad operativa y revisión posterior.
+
+## Enumeraciones
+
+- `RolUsuario`: `ESTUDIANTE`, `FUNCIONARIO`, `GUARDIA`, `ADMIN_CENTRAL`,
+  `ADMINISTRADOR`.
+- `TipoMovimiento`: `INGRESO`, `RETIRO`.
+- `TipoCodigoQrTemporal`: `INGRESO`, `RETIRO`.
+- `TipoOrigenMovimiento`: `QR`, `MANUAL`.
+- `EstadoMovimiento`: `CONFIRMADO`, `DENEGADO`.
+- `TipoSolicitudGuardia`: `GUARDIA_AUSENTE`, `REQUIERE_SERVICIO`.
+- `EstadoSolicitudGuardia`: `PENDIENTE`, `NOTIFICADA`, `EN_CAMINO`,
+  `RESUELTA`, `CANCELADA`.
+- `TipoIncidencia`: `PROBLEMA_QR`, `DANO_BICICLETA`, `DANO_INFRAESTRUCTURA`,
+  `PROBLEMA_MOVIMIENTO`, `USUARIO_DATOS`, `OTRO`.
+- `EstadoIncidencia`: `PENDIENTE`, `EN_REVISION`, `RESUELTA`, `DESCARTADA`.
+- `TipoNotificacion`: `SISTEMA`, `CUENTA`, `SEGURIDAD`, `SOLICITUD_GUARDIA`,
+  `MOVIMIENTO`, `INCIDENCIA`.
+
+## Generación Automática Del Diagrama
+
+El archivo `docs/modelo-relacional.dbml` se genera automáticamente desde
+`backend/prisma/schema.prisma` mediante `prisma-dbml-generator`. Este archivo no
+debe editarse manualmente, porque representa el modelo actual definido en
+Prisma.
+
+Para regenerar el diagrama:
+
+```bash
+cd backend
+npm run generate
+```
+
+Luego se puede abrir `docs/modelo-relacional.dbml` con una extensión DBML en VS
+Code o pegar su contenido en `https://dbdiagram.io/` para exportarlo como imagen
+o PDF e incluirlo en el informe.

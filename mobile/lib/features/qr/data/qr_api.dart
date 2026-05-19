@@ -34,7 +34,7 @@ class QrTemporalApp {
         descripcion: bicicletaJson['descripcion'] as String,
         fotoUrl: null,
         activa: true,
-        dentroBicicletero: json['tipo'] == 'SALIDA',
+        dentroBicicletero: json['tipo'] == 'RETIRO',
       ),
       bicicletero: bicicleteroJson == null
           ? null

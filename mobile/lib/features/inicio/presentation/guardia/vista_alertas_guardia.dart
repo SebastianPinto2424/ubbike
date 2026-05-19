@@ -119,6 +119,7 @@ class _VistaAlertasGuardiaState extends State<VistaAlertasGuardia> {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _TarjetaSolicitudGuardia(
                         solicitud: solicitud,
+                        mostrarSolicitante: true,
                         onActualizar: (estado) async {
                           await solicitudGuardiaApi.actualizarEstado(
                             solicitudId: solicitud.id,

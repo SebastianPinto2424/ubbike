@@ -1,34 +1,34 @@
 # UBBike
 
-Aplicacion web/mobile y API REST para gestionar el registro de bicicletas, el ingreso y retiro desde bicicleteros, y la trazabilidad operativa de los accesos en la Universidad del Bio-Bio.
+Aplicación web/mobile y API REST para gestionar el registro de bicicletas, el ingreso y retiro desde bicicleteros, y la trazabilidad operativa de los accesos en la Universidad del Bío-Bío.
 
 ## Estructura del proyecto
 
 - `backend/`: API REST con Node.js, Express, Prisma, PostgreSQL y Redis.
-- `mobile/`: aplicacion Flutter Web/Mobile con vistas por rol.
-- `docs/`: documentacion tecnica, modelo relacional y notas de produccion.
+- `mobile/`: aplicación Flutter Web/Mobile con vistas por rol.
+- `docs/`: documentación técnica, modelo relacional y notas de producción.
 
 ## Requisitos
 
-- Instale Docker Desktop y mantengalo abierto durante la ejecucion local.
+- Instale Docker Desktop y manténgalo abierto durante la ejecución local.
 - Git.
-- Navegador web para probar la aplicacion local.
+- Navegador web para probar la aplicación local.
 - Flutter y Node.js solo si se desea ejecutar sin Docker.
 
 ## Entrega Docker Compose
 
-Esta seccion contiene el procedimiento especifico para la entrega de integracion con Docker Compose. El archivo `docker-compose.yml` se encuentra en la raiz del repositorio y levanta todos los servicios necesarios del proyecto.
+Esta sección contiene el procedimiento específico para la entrega de integración con Docker Compose. El archivo `docker-compose.yml` se encuentra en la raíz del repositorio y levanta todos los servicios necesarios del proyecto.
 
 ### Requisitos para ejecutar
 
 - Docker Desktop o Docker Engine con Docker Compose disponible.
 - Git.
-- Navegador web para acceder a la aplicacion.
-- No es obligatorio crear archivos `.env`; el `docker-compose.yml` incluye valores por defecto para evaluacion local.
+- Navegador web para acceder a la aplicación.
+- No es obligatorio crear archivos `.env`; el `docker-compose.yml` incluye valores por defecto para evaluación local.
 
 ### Procedimiento desde cero
 
-Clonar el repositorio, entrar a la raiz del proyecto y levantar los servicios:
+Clonar el repositorio, entrar a la raíz del proyecto y levantar los servicios:
 
 ```bash
 git clone https://github.com/SebastianPinto2424/ubbike.git
@@ -44,11 +44,11 @@ git pull
 docker compose up
 ```
 
-### Verificacion de ejecucion
+### Verificación de ejecución
 
 Cuando los contenedores terminen de iniciar, verificar los siguientes accesos:
 
-- Aplicacion web: [http://localhost:8081](http://localhost:8081)
+- Aplicación web: [http://localhost:8081](http://localhost:8081)
 - Health check backend: [http://localhost:3000/health](http://localhost:3000/health)
 - Correos de prueba Mailpit: [http://localhost:8025](http://localhost:8025)
 - PostgreSQL local: `127.0.0.1:5432`
@@ -59,7 +59,7 @@ Para consultar el estado de los contenedores:
 docker compose ps
 ```
 
-Para detener la ejecucion:
+Para detener la ejecución:
 
 ```bash
 docker compose down
@@ -67,17 +67,17 @@ docker compose down
 
 ### Servicios definidos en Docker Compose
 
-| Contenedor | Servicio | Funcion |
+| Contenedor | Servicio | Función |
 | --- | --- | --- |
 | `ubbike_db` | PostgreSQL | Almacena usuarios, bicicletas, bicicleteros, movimientos, solicitudes y notificaciones. |
 | `ubbike_redis` | Redis | Mantiene contadores temporales para limitar intentos de acceso y proteger acciones sensibles. |
-| `ubbike_mailpit` | Mailpit | Recibe correos de prueba para registro, verificacion y cambio de contrasena en local. |
+| `ubbike_mailpit` | Mailpit | Recibe correos de prueba para registro, verificación y cambio de contraseña en local. |
 | `ubbike_backend` | Backend API | Expone la API REST, aplica reglas de negocio, seguridad, validaciones y migraciones. |
-| `ubbike_frontend` | Frontend Flutter Web | Sirve la aplicacion web de UBBike mediante Nginx. |
+| `ubbike_frontend` | Frontend Flutter Web | Sirve la aplicación web de UBBike mediante Nginx. |
 
-## Configuracion opcional
+## Configuración opcional
 
-Si desea personalizar puertos, contrasenas o secretos para Docker, cree el archivo de entorno local:
+Si desea personalizar puertos, contraseñas o secretos para Docker, cree el archivo de entorno local:
 
 ```bash
 cp .env.example .env
@@ -89,12 +89,12 @@ En Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-Luego reemplace, como minimo:
+Luego reemplace, como mínimo:
 
 - `.env`: `POSTGRES_PASSWORD` por una clave segura.
-- `.env`: `JWT_SECRET` por un secreto largo de 32 o mas caracteres.
+- `.env`: `JWT_SECRET` por un secreto largo de 32 o más caracteres.
 
-El archivo `.env` esta ignorado por Git y no debe subirse al repositorio. El archivo `backend/.env` solo es necesario si ejecuta el backend sin Docker.
+El archivo `.env` está ignorado por Git y no debe subirse al repositorio. El archivo `backend/.env` solo es necesario si ejecuta el backend sin Docker.
 
 ## Despliegue local con Docker
 
@@ -104,7 +104,7 @@ Desde la carpeta principal del proyecto, si desea reconstruir y dejar los servic
 docker compose up -d --build
 ```
 
-## Comandos utiles
+## Comandos útiles
 
 Ejecutar o aplicar cambios:
 
@@ -112,7 +112,7 @@ Ejecutar o aplicar cambios:
 docker compose up -d --build
 ```
 
-Reconstruccion limpia sin cache:
+Reconstrucción limpia sin caché:
 
 ```bash
 docker compose build --no-cache
@@ -125,7 +125,7 @@ Detener conservando datos:
 docker compose down
 ```
 
-Reiniciar desde cero eliminando volumenes:
+Reiniciar desde cero eliminando volúmenes:
 
 ```bash
 docker compose down -v
@@ -170,10 +170,10 @@ El proyecto queda preparado con una configuracion segura base:
 - Puertos publicados solo en `127.0.0.1` en entorno local.
 - Redis para rate limiting distribuido.
 - Nginx con headers de seguridad y CSP para Flutter Web.
-- Validacion estricta de correo institucional y contrasenas.
-- Tokens de verificacion de correo con expiracion.
-- QR temporal de corta duracion.
-- Validacion de QR restringida al bicicletero activo del guardia.
+- Validación estricta de correo institucional y contraseñas.
+- Tokens de verificación de correo con expiración.
+- QR temporal de corta duración.
+- Validación de QR restringida al bicicletero activo del guardia.
 
 ## Credenciales demo
 
@@ -191,11 +191,11 @@ UBBike2026*
 | Admin central | `admin.central@ubiobio.cl` |
 | Administrador | `administrador@ubiobio.cl` |
 
-En produccion, `SEED_DEMO_DATA=false`.
+En producción, `SEED_DEMO_DATA=false`.
 
-## Documentacion adicional
+## Documentación adicional
 
-La documentacion tecnica adicional se encuentra en:
+La documentación técnica adicional se encuentra en:
 
 - `docs/desarrollo-y-api.md`: flujo funcional, endpoints principales, arranque sin Docker y validaciones.
 - `docs/modelo-relacional.md`: modelo relacional del proyecto.

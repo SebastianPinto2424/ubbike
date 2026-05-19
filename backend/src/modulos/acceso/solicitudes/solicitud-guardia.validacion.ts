@@ -15,3 +15,7 @@ export const esquemaActualizarEstadoSolicitudGuardia = Joi.object({
     .valid(...Object.values(EstadoSolicitudGuardia))
     .required()
 });
+
+export const esquemaNotificarGuardiaSolicitud = Joi.object({
+  mensaje: Joi.string().trim().max(600).allow('', null).optional()
+}).default({});

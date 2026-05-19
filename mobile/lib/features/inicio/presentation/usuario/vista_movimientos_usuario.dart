@@ -12,6 +12,9 @@ class _VistaMovimientosUsuarioState extends State<VistaMovimientosUsuario> {
   final historialApi = HistorialApi();
   final filtroController = TextEditingController();
   String periodo = 'MES';
+  String tipoMovimiento = 'TODOS';
+  String estadoMovimiento = 'TODOS';
+  String origenMovimiento = 'TODOS';
   late Future<List<MovimientoApp>> futuroMovimientos;
 
   @override
@@ -30,6 +33,9 @@ class _VistaMovimientosUsuarioState extends State<VistaMovimientosUsuario> {
     return historialApi.listar(
       filtro: filtroController.text,
       periodo: periodo,
+      tipo: tipoMovimiento,
+      estado: estadoMovimiento,
+      origen: origenMovimiento,
     );
   }
 
@@ -53,53 +59,91 @@ class _VistaMovimientosUsuarioState extends State<VistaMovimientosUsuario> {
       children: [
         _TituloApartado(titulo: 'Mis movimientos', onRefresh: _recargar),
         const SizedBox(height: 10),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _FiltroChip(
-                  label: 'Dia',
-                  value: 'DIA',
-                  selectedValue: periodo,
-                  onTap: (v) => _cambiarPeriodo(v)),
-              const SizedBox(width: 8),
-              _FiltroChip(
-                  label: 'Semana',
-                  value: 'SEMANA',
-                  selectedValue: periodo,
-                  onTap: (v) => _cambiarPeriodo(v)),
-              const SizedBox(width: 8),
-              _FiltroChip(
-                  label: 'Mes',
-                  value: 'MES',
-                  selectedValue: periodo,
-                  onTap: (v) => _cambiarPeriodo(v)),
-              const SizedBox(width: 8),
-              _FiltroChip(
-                  label: 'Ano',
-                  value: 'ANIO',
-                  selectedValue: periodo,
-                  onTap: (v) => _cambiarPeriodo(v)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          decoration: BoxDecoration(
-            color: ColoresUbb.azulApp.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: TextField(
-            controller: filtroController,
-            decoration: const InputDecoration(
-              labelText: 'Filtrar por bicicleta',
-              prefixIcon: Icon(Icons.search, color: ColoresUbb.azulApp),
-              border: InputBorder.none,
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        _PanelFiltros(
+          titulo: 'Filtros',
+          detalle:
+              '${_etiquetaPeriodoFiltro(periodo)} | ${_etiquetaTipoMovimientoFiltro(tipoMovimiento)} | ${_etiquetaEstadoMovimientoFiltro(estadoMovimiento)}',
+          onLimpiar: () {
+            filtroController.clear();
+            periodo = 'MES';
+            tipoMovimiento = 'TODOS';
+            estadoMovimiento = 'TODOS';
+            origenMovimiento = 'TODOS';
+            _recargar();
+          },
+          children: [
+            _EtiquetaFiltro(
+              texto: 'Periodo',
+              child: _SegmentadoEnLinea<String>(
+                segments: const [
+                  ButtonSegment(value: 'DIA', label: Text('Dia')),
+                  ButtonSegment(value: 'SEMANA', label: Text('Semana')),
+                  ButtonSegment(value: 'MES', label: Text('Mes')),
+                  ButtonSegment(value: 'ANIO', label: Text('Ano')),
+                ],
+                selected: {periodo},
+                onSelectionChanged: (valor) => _cambiarPeriodo(valor.first),
+              ),
             ),
-            onChanged: (_) => _recargar(),
-          ),
+            const SizedBox(height: 12),
+            _EtiquetaFiltro(
+              texto: 'Tipo',
+              child: _SegmentadoEnLinea<String>(
+                segments: const [
+                  ButtonSegment(value: 'TODOS', label: Text('Todos')),
+                  ButtonSegment(value: 'INGRESO', label: Text('Ingresos')),
+                  ButtonSegment(value: 'RETIRO', label: Text('Retiros')),
+                ],
+                selected: {tipoMovimiento},
+                onSelectionChanged: (valor) {
+                  tipoMovimiento = valor.first;
+                  _recargar();
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            _EtiquetaFiltro(
+              texto: 'Resultado',
+              child: _SegmentadoEnLinea<String>(
+                segments: const [
+                  ButtonSegment(value: 'TODOS', label: Text('Todos')),
+                  ButtonSegment(
+                      value: 'CONFIRMADO', label: Text('Confirmados')),
+                  ButtonSegment(value: 'DENEGADO', label: Text('Denegados')),
+                ],
+                selected: {estadoMovimiento},
+                onSelectionChanged: (valor) {
+                  estadoMovimiento = valor.first;
+                  _recargar();
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            _EtiquetaFiltro(
+              texto: 'Origen',
+              child: _SegmentadoEnLinea<String>(
+                segments: const [
+                  ButtonSegment(value: 'TODOS', label: Text('Todos')),
+                  ButtonSegment(value: 'QR', label: Text('QR')),
+                  ButtonSegment(value: 'MANUAL', label: Text('Manual')),
+                ],
+                selected: {origenMovimiento},
+                onSelectionChanged: (valor) {
+                  origenMovimiento = valor.first;
+                  _recargar();
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: filtroController,
+              decoration: const InputDecoration(
+                labelText: 'Buscar por bicicleta o bicicletero',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (_) => _recargar(),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         FutureBuilder<List<MovimientoApp>>(
@@ -130,7 +174,10 @@ class _VistaMovimientosUsuarioState extends State<VistaMovimientosUsuario> {
                   .map(
                     (movimiento) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _TarjetaMovimientoCentral(movimiento: movimiento),
+                      child: _TarjetaMovimientoCentral(
+                        movimiento: movimiento,
+                        mostrarIdentidad: false,
+                      ),
                     ),
                   )
                   .toList(),

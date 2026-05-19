@@ -1,0 +1,52 @@
+@startuml
+title Casos de uso - Solicitudes de atención al guardia
+
+left to right direction
+
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #F8FBFD
+  BorderColor #1E88C8
+  ArrowColor #0B2A44
+}
+
+actor "Usuario comunidad\nuniversitaria" as Usuario
+actor "Guardia" as Guardia
+actor "Administrador" as Admin
+actor "Administrador central" as Central
+actor "Sistema de correo" as Correo
+
+Central --|> Admin
+
+rectangle "Sistema UBBike" {
+  usecase "Crear solicitud\nde guardia" as UC01
+  usecase "Reiterar aviso\nal guardia" as UC02
+  usecase "Consultar solicitudes" as UC03
+  usecase "Marcar guardia\nen camino" as UC04
+  usecase "Resolver solicitud" as UC05
+  usecase "Supervisar solicitudes" as UC06
+  usecase "Enviar notificación" as UC07
+}
+
+Usuario --> UC01
+Usuario --> UC02
+Usuario --> UC03
+
+Guardia --> UC03
+Guardia --> UC04
+Guardia --> UC05
+
+Admin --> UC03
+Admin --> UC06
+
+UC07 -- Correo
+
+UC01 ..> UC07 : <<include>>
+UC02 ..> UC07 : <<include>>
+UC04 ..> UC07 : <<include>>
+UC05 ..> UC07 : <<include>>
+UC06 ..> UC03 : <<include>>
+
+@enduml

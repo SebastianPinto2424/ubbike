@@ -2,6 +2,7 @@ import { SolicitudAutenticada } from '../../comun/middlewares/autenticacion.midd
 import { controladorAsync } from '../../comun/utils/controlador-async';
 import {
   cambiarContrasena as cambiarContrasenaServicio,
+  completarRegistro as completarRegistroServicio,
   iniciarSesion as iniciarSesionServicio,
   obtenerUsuarioActual,
   registrarUsuario,
@@ -27,6 +28,15 @@ export const obtenerPerfil = controladorAsync<SolicitudAutenticada>(async (req, 
 export const verificarCorreo = controladorAsync(async (req, res) => {
   const token = String(req.body?.token ?? req.query.token ?? '');
   const resultado = await verificarCorreoServicio(token);
+  return res.status(200).json(resultado);
+});
+
+export const completarRegistro = controladorAsync(async (req, res) => {
+  const resultado = await completarRegistroServicio({
+    token: req.body.token,
+    nombre: req.body.nombre,
+    contrasena: req.body.contrasena
+  });
   return res.status(200).json(resultado);
 });
 

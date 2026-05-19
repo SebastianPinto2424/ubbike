@@ -30,7 +30,8 @@ class _VistaSolicitudesCentralState extends State<VistaSolicitudesCentral> {
       children: [
         const _EncabezadoSeccion(
           titulo: 'Solicitudes',
-          detalle: 'Prioriza atencion y coordina guardias por bicicletero.',
+          detalle:
+              'Supervisa solicitudes, reenvia avisos y detecta casos sin respuesta.',
           icono: Icons.campaign_outlined,
         ),
         const SizedBox(height: 16),

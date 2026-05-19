@@ -70,6 +70,23 @@ class AutenticacionApi {
     return respuesta['message'] as String;
   }
 
+  Future<String> completarRegistro({
+    required String token,
+    required String nombre,
+    required String contrasena,
+  }) async {
+    final respuesta = await cliente.post(
+      '/autenticacion/completar-registro',
+      body: {
+        'token': token,
+        'nombre': nombre,
+        'contrasena': contrasena,
+      },
+    );
+
+    return respuesta['message'] as String;
+  }
+
   Future<String> cambiarContrasena({
     required String token,
     required String contrasena,

@@ -71,6 +71,153 @@ class _PantallaVerificarCorreoState extends State<PantallaVerificarCorreo> {
   }
 }
 
+class PantallaCompletarRegistro extends StatefulWidget {
+  const PantallaCompletarRegistro({super.key, required this.token});
+
+  final String token;
+
+  @override
+  State<PantallaCompletarRegistro> createState() =>
+      _PantallaCompletarRegistroState();
+}
+
+class _PantallaCompletarRegistroState extends State<PantallaCompletarRegistro> {
+  final nombreController = TextEditingController();
+  final contrasenaController = TextEditingController();
+  final autenticacionApi = AutenticacionApi();
+  bool cargando = false;
+  bool mostrarContrasena = false;
+
+  @override
+  void dispose() {
+    nombreController.dispose();
+    contrasenaController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _completar() async {
+    final nombre = nombreController.text.trim();
+    final segura = RegExp(
+      r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$',
+    );
+
+    if (nombre.length < 2) {
+      _mostrarMensaje('Ingresa tu nombre completo');
+      return;
+    }
+
+    if (!segura.hasMatch(contrasenaController.text)) {
+      _mostrarMensaje(
+        'Minimo 12 caracteres con mayuscula, minuscula, numero y simbolo',
+      );
+      return;
+    }
+
+    setState(() => cargando = true);
+
+    try {
+      final mensaje = await autenticacionApi.completarRegistro(
+        token: widget.token,
+        nombre: nombre,
+        contrasena: contrasenaController.text,
+      );
+
+      if (mounted) {
+        _mostrarMensaje(mensaje);
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const PantallaLogin()),
+          (_) => false,
+        );
+      }
+    } on ExcepcionApi catch (error) {
+      if (mounted) {
+        _mostrarMensaje(error.mensaje);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => cargando = false);
+      }
+    }
+  }
+
+  void _mostrarMensaje(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensaje)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Completar registro')),
+      body: ContenedorResponsivo(
+        anchoMaximo: 560,
+        child: ListView(
+          children: [
+            const MarcaUbbike(compacta: true),
+            const SizedBox(height: 20),
+            Text(
+              'Activa tu cuenta',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Completa tus datos para iniciar sesion y generar codigos QR.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: ColoresUbb.textoSecundario,
+                  ),
+            ),
+            const SizedBox(height: 18),
+            TextField(
+              controller: nombreController,
+              decoration: decoracionCampoAuth(
+                labelText: 'Nombre completo',
+                icono: Icons.person_outline,
+              ),
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 18),
+            TextField(
+              controller: contrasenaController,
+              obscureText: !mostrarContrasena,
+              decoration: decoracionCampoAuth(
+                labelText: 'Contrasena',
+                icono: Icons.lock_outline,
+                suffixIcon: IconButton(
+                  tooltip: mostrarContrasena
+                      ? 'Ocultar contrasena'
+                      : 'Mostrar contrasena',
+                  onPressed: () {
+                    setState(() => mostrarContrasena = !mostrarContrasena);
+                  },
+                  icon: Icon(
+                    mostrarContrasena
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
+              textInputAction: TextInputAction.done,
+            ),
+            const SizedBox(height: 26),
+            ElevatedButton.icon(
+              style: estiloBotonAuth(),
+              onPressed: cargando ? null : _completar,
+              icon: cargando
+                  ? indicadorBotonAuth()
+                  : const Icon(Icons.check_circle_outline),
+              label: Text(cargando ? 'Activando...' : 'Completar registro'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class PantallaCambiarContrasena extends StatefulWidget {
   const PantallaCambiarContrasena({super.key, required this.token});
 

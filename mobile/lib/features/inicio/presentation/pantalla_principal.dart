@@ -1,3 +1,7 @@
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'central/fuente_movimientos.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -7,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+import '../../../core/configuracion/configuracion_api.dart';
 import '../../../core/tema/colores_ubb.dart';
 import '../../../core/servicios/excepcion_api.dart';
 import '../../../features/acceso/data/solicitud_guardia_api.dart';
@@ -16,6 +21,7 @@ import '../../../features/auth/presentation/pantalla_login.dart';
 import '../../../features/bicicletas/data/bicicleta_api.dart';
 import '../../../features/acceso/data/acceso_api.dart';
 import '../../../features/historial/data/historial_api.dart';
+import '../../../features/incidencias/data/incidencia_api.dart';
 import '../../../features/inicio/application/controlador_notificaciones_inicio.dart';
 import '../../../features/notificaciones/presentation/pantalla_notificaciones.dart';
 import '../../../features/qr/data/qr_api.dart';
@@ -24,6 +30,7 @@ import '../../../shared/modelos/bicicletero_app.dart';
 import '../../../shared/modelos/movimiento_app.dart';
 import '../../../shared/modelos/rol_usuario.dart';
 import '../../../shared/servicios/sesion_actual.dart';
+import '../../../shared/servicios/descarga_reporte.dart';
 import '../../../shared/widgets/chip_estado.dart';
 import '../../../shared/widgets/contenedor_responsivo.dart';
 import '../../../shared/widgets/marca_ubbike.dart';
@@ -43,6 +50,8 @@ part 'central/vista_dashboard_central.dart';
 part 'central/vista_movimientos_central.dart';
 part 'central/vista_operaciones_guardias_central.dart';
 part 'central/vista_solicitudes_central.dart';
+part 'soporte/vista_incidencias.dart';
+part 'soporte/vista_soporte.dart';
 part 'perfil/pantalla_principal_perfil.dart';
 part 'widgets/bicicletas_widgets.dart';
 part 'widgets/qr_widgets.dart';
@@ -96,6 +105,20 @@ Uint8List? _decodificarFotoDataUrl(String? fotoDataUrl) {
   } on FormatException {
     return null;
   }
+}
+
+String _resolverUrlFotoBicicleta(String fotoUrl) {
+  if (fotoUrl.startsWith('data:image') ||
+      fotoUrl.startsWith('http://') ||
+      fotoUrl.startsWith('https://')) {
+    return fotoUrl;
+  }
+
+  if (fotoUrl.startsWith('/')) {
+    return '${ConfiguracionApi.baseUrl}$fotoUrl';
+  }
+
+  return fotoUrl;
 }
 
 class PantallaPrincipal extends StatefulWidget {
@@ -253,7 +276,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         const NavigationDestination(
             icon: Icon(Icons.edit_note_outlined), label: 'Manual'),
         const NavigationDestination(
-            icon: Icon(Icons.notifications_active_outlined), label: 'Alertas'),
+            icon: Icon(Icons.support_agent_outlined), label: 'Soporte'),
         const NavigationDestination(
             icon: Icon(Icons.person_outline), label: 'Perfil'),
       ];
@@ -268,7 +291,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         NavigationDestination(
             icon: Icon(Icons.security_outlined), label: 'Guardias'),
         NavigationDestination(
-            icon: Icon(Icons.campaign_outlined), label: 'Solicitudes'),
+            icon: Icon(Icons.support_agent_outlined), label: 'Soporte'),
         NavigationDestination(
             icon: Icon(Icons.person_outline), label: 'Perfil'),
       ];
@@ -283,7 +306,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         NavigationDestination(
             icon: Icon(Icons.manage_accounts_outlined), label: 'Usuarios'),
         NavigationDestination(
-            icon: Icon(Icons.campaign_outlined), label: 'Solicitudes'),
+            icon: Icon(Icons.support_agent_outlined), label: 'Soporte'),
         NavigationDestination(
             icon: Icon(Icons.security_outlined), label: 'Guardias'),
         NavigationDestination(
@@ -315,7 +338,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         label: 'QR',
       ),
       const NavigationDestination(
-          icon: Icon(Icons.support_agent), label: 'Guardia'),
+          icon: Icon(Icons.support_agent), label: 'Soporte'),
       const NavigationDestination(
           icon: Icon(Icons.person_outline), label: 'Perfil'),
     ];
@@ -328,7 +351,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         VistaEscanerQrGuardia(),
         VistaMovimientosCentral(),
         VistaGestionManualGuardia(),
-        VistaAlertasGuardia(),
+        VistaSoporteGuardia(),
         VistaPerfil(rol: RolUsuario.guardia),
       ];
     }
@@ -338,7 +361,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         VistaDashboardCentral(),
         VistaMovimientosCentral(),
         VistaOperacionesGuardiasCentral(),
-        VistaSolicitudesCentral(),
+        VistaSoporteCentral(),
         VistaPerfil(rol: RolUsuario.adminCentral),
       ];
     }
@@ -348,7 +371,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         VistaDashboardCentral(),
         VistaMovimientosCentral(),
         VistaGestionUsuarios(),
-        VistaSolicitudesCentral(),
+        VistaSoporteCentral(),
         VistaOperacionesGuardiasCentral(),
         VistaPerfil(rol: RolUsuario.administrador),
       ];
@@ -358,7 +381,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
       const VistaInicioUsuario(),
       const VistaBicicletas(),
       const VistaQrUsuario(),
-      const VistaSolicitarGuardia(),
+      const VistaSoporteUsuario(),
       VistaPerfil(rol: rol),
     ];
   }

@@ -24,6 +24,7 @@ class _FormularioBicicletaSheetState extends State<_FormularioBicicletaSheet> {
   late String? fotoSeleccionada;
   late bool activar;
   bool guardando = false;
+  bool fotoModificada = false;
 
   @override
   void initState() {
@@ -90,7 +91,10 @@ class _FormularioBicicletaSheetState extends State<_FormularioBicicletaSheet> {
       }
 
       if (mounted) {
-        setState(() => fotoSeleccionada = dataUrl);
+        setState(() {
+          fotoSeleccionada = dataUrl;
+          fotoModificada = true;
+        });
       }
     } catch (_) {
       if (mounted) {
@@ -132,6 +136,7 @@ class _FormularioBicicletaSheetState extends State<_FormularioBicicletaSheet> {
           aro: aroController.text.trim(),
           numeroSerie: numeroSerieController.text.trim(),
           fotoUrl: fotoSeleccionada,
+          actualizarFoto: fotoModificada,
         );
         if (activar && !bicicleta.activa) {
           await widget.bicicletaApi.activar(bicicleta.id);
@@ -254,7 +259,10 @@ class _FormularioBicicletaSheetState extends State<_FormularioBicicletaSheet> {
               onGaleria: () => _seleccionarFoto(ImageSource.gallery),
               onQuitar: fotoSeleccionada == null
                   ? null
-                  : () => setState(() => fotoSeleccionada = null),
+                  : () => setState(() {
+                        fotoSeleccionada = null;
+                        fotoModificada = true;
+                      }),
             ),
             const SizedBox(height: 8),
             CheckboxListTile(
@@ -318,6 +326,16 @@ class _SelectorFotoBicicleta extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 child: Image.memory(
                   bytesFoto,
+                  height: 140,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ] else if (foto != null && foto.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  _resolverUrlFotoBicicleta(foto),
                   height: 140,
                   fit: BoxFit.cover,
                 ),

@@ -11,13 +11,14 @@ import { rutasAcceso } from './modulos/acceso/operaciones/acceso.rutas';
 import { rutasAsignacionGuardia } from './modulos/acceso/asignaciones/asignacion-guardia.rutas';
 import { rutasSolicitudesGuardia } from './modulos/acceso/solicitudes/solicitud-guardia.rutas';
 import { rutasUsuarios } from './modulos/usuarios/usuario.rutas';
+import { rutasIncidencias } from './modulos/incidencias/incidencia.rutas';
 import { middlewareErrores } from './comun/middlewares/errores.middleware';
 import { entorno } from './configuracion/entorno';
 
 const aplicacion = express();
 
 aplicacion.set('trust proxy', entorno.servidor.trustProxy);
-aplicacion.use(helmet());
+aplicacion.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 aplicacion.use(
   cors({
     origin: (origen, callback) => {
@@ -30,6 +31,14 @@ aplicacion.use(
   })
 );
 aplicacion.use(express.json({ limit: '2mb' }));
+aplicacion.use(
+  entorno.archivos.rutaPublicaUploads,
+  express.static(entorno.archivos.directorioUploads, {
+    index: false,
+    fallthrough: false,
+    maxAge: '7d'
+  })
+);
 
 aplicacion.get(['/salud', '/health'], (_req: Request, res: Response) => {
   return res.status(200).json({
@@ -48,6 +57,7 @@ aplicacion.use('/qr', rutasQr);
 aplicacion.use('/accesos', rutasAcceso);
 aplicacion.use('/guardias', rutasAsignacionGuardia);
 aplicacion.use('/solicitudes-guardia', rutasSolicitudesGuardia);
+aplicacion.use('/incidencias', rutasIncidencias);
 aplicacion.use('/usuarios', rutasUsuarios);
 aplicacion.use(middlewareErrores);
 

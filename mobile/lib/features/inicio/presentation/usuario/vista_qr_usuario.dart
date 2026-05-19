@@ -61,7 +61,7 @@ class _VistaQrUsuarioState extends State<VistaQrUsuario> {
         : qr.expiraEn.difference(DateTime.now()).inSeconds.clamp(0, 15);
     final bicicleta = bicicletaActiva;
     final tipoOperacion =
-        bicicleta?.dentroBicicletero == true ? 'SALIDA' : 'INGRESO';
+        bicicleta?.dentroBicicletero == true ? 'RETIRO' : 'INGRESO';
     final debeSeleccionarBicicletero = tipoOperacion == 'INGRESO';
 
     return ListView(
@@ -211,7 +211,7 @@ class _VistaQrUsuarioState extends State<VistaQrUsuario> {
 
     try {
       final tipo =
-          bicicletaActiva?.dentroBicicletero == true ? 'SALIDA' : 'INGRESO';
+          bicicletaActiva?.dentroBicicletero == true ? 'RETIRO' : 'INGRESO';
       final qr = await qrApi.generar(
         bicicleteroId: tipo == 'INGRESO' ? bicicleteroSeleccionado?.id : null,
       );

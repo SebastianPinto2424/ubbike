@@ -3,7 +3,8 @@ import { controladorAsync } from '../../../comun/utils/controlador-async';
 import {
   actualizarEstadoSolicitudGuardia,
   crearSolicitudGuardia,
-  listarSolicitudesGuardia
+  listarSolicitudesGuardia,
+  notificarGuardiaSolicitud
 } from './solicitud-guardia.servicio';
 
 export const crear = controladorAsync<SolicitudAutenticada>(async (req, res) => {
@@ -33,6 +34,17 @@ export const actualizarEstado = controladorAsync<SolicitudAutenticada>(async (re
     req.params.id,
     req.body.estado
   );
+
+  return res.status(200).json({ solicitud });
+});
+
+export const notificarGuardia = controladorAsync<SolicitudAutenticada>(async (req, res) => {
+  const solicitud = await notificarGuardiaSolicitud({
+    usuarioId: req.usuario!.usuarioId,
+    rol: req.usuario!.rol,
+    solicitudId: req.params.id,
+    mensaje: req.body.mensaje
+  });
 
   return res.status(200).json({ solicitud });
 });

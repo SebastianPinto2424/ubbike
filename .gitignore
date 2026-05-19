@@ -11,6 +11,9 @@ yarn-error.log*
 .env
 backend/.env
 
+# Documentos personales/propuesta fuera del código fuente
+IECI_PROPUESTA_TALLER_*.pdf
+
 # Flutter / Dart
 .dart_tool/
 .flutter-plugins
@@ -29,3 +32,5 @@ Thumbs.db
 *.log
 tmp/
 temp/
+uploads/
+backend/uploads/

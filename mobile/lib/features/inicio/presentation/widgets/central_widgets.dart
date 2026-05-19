@@ -63,10 +63,19 @@ class _IndicadorCentral extends StatelessWidget {
 }
 
 class _FilaDato extends StatelessWidget {
-  const _FilaDato({required this.etiqueta, required this.valor});
+  const _FilaDato({
+    required this.etiqueta,
+    required this.valor,
+    this.anchoCompleto = false,
+    this.valorColor,
+    this.valorPeso = FontWeight.w800,
+  });
 
   final String etiqueta;
   final String valor;
+  final bool anchoCompleto;
+  final Color? valorColor;
+  final FontWeight valorPeso;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +83,10 @@ class _FilaDato extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compacto = constraints.maxWidth < 360 || valor.length > 34;
+          final compacto = anchoCompleto ||
+              constraints.maxWidth < 380 ||
+              valor.length > 28 ||
+              valor.contains('@');
           final etiquetaWidget = Text(
             etiqueta,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -85,8 +97,10 @@ class _FilaDato extends StatelessWidget {
             valor,
             textAlign: compacto ? TextAlign.start : TextAlign.end,
             softWrap: true,
+            overflow: TextOverflow.visible,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
+                  color: valorColor,
+                  fontWeight: valorPeso,
                 ),
           );
 

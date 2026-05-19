@@ -1,27 +1,78 @@
 import '../../../core/servicios/cliente_api.dart';
+import '../../../shared/modelos/bicicletero_app.dart';
 import '../../../shared/modelos/movimiento_app.dart';
+import '../../../shared/modelos/usuario_app.dart';
 import '../../../shared/servicios/sesion_actual.dart';
 
 class ResumenHistorialApp {
   const ResumenHistorialApp({
+    required this.totalMovimientos,
+    required this.ingresos,
+    required this.retiros,
+    required this.confirmados,
+    required this.denegados,
+    required this.manuales,
+    required this.qr,
     required this.movimientosSemana,
     required this.denegacionesSemana,
     required this.operacionesPorGuardia,
+    required this.operacionesPorBicicletero,
   });
 
+  final int totalMovimientos;
+  final int ingresos;
+  final int retiros;
+  final int confirmados;
+  final int denegados;
+  final int manuales;
+  final int qr;
   final int movimientosSemana;
   final int denegacionesSemana;
   final Map<String, int> operacionesPorGuardia;
+  final Map<String, int> operacionesPorBicicletero;
 
   factory ResumenHistorialApp.desdeJson(Map<String, dynamic> json) {
-    final operaciones = json['operacionesPorGuardia'] as Map<String, dynamic>;
+    Map<String, int> mapa(String llave) {
+      final datos = json[llave] as Map<String, dynamic>? ?? const {};
+      return datos.map((clave, valor) => MapEntry(clave, valor as int));
+    }
 
     return ResumenHistorialApp(
-      movimientosSemana: json['movimientosSemana'] as int,
-      denegacionesSemana: json['denegacionesSemana'] as int,
-      operacionesPorGuardia: operaciones.map(
-        (clave, valor) => MapEntry(clave, valor as int),
-      ),
+      totalMovimientos: json['totalMovimientos'] as int? ??
+          json['movimientosSemana'] as int? ??
+          0,
+      ingresos: json['ingresos'] as int? ?? 0,
+      retiros: json['retiros'] as int? ?? 0,
+      confirmados: json['confirmados'] as int? ?? 0,
+      denegados:
+          json['denegados'] as int? ?? json['denegacionesSemana'] as int? ?? 0,
+      manuales: json['manuales'] as int? ?? 0,
+      qr: json['qr'] as int? ?? 0,
+      movimientosSemana: json['movimientosSemana'] as int? ?? 0,
+      denegacionesSemana: json['denegacionesSemana'] as int? ?? 0,
+      operacionesPorGuardia: mapa('operacionesPorGuardia'),
+      operacionesPorBicicletero: mapa('operacionesPorBicicletero'),
+    );
+  }
+}
+
+class OpcionesHistorialApp {
+  const OpcionesHistorialApp({
+    required this.bicicleteros,
+    required this.guardias,
+  });
+
+  final List<BicicleteroApp> bicicleteros;
+  final List<UsuarioApp> guardias;
+
+  factory OpcionesHistorialApp.desdeJson(Map<String, dynamic> json) {
+    return OpcionesHistorialApp(
+      bicicleteros: (json['bicicleteros'] as List<dynamic>? ?? const [])
+          .map((item) => BicicleteroApp.desdeJson(item as Map<String, dynamic>))
+          .toList(),
+      guardias: (json['guardias'] as List<dynamic>? ?? const [])
+          .map((item) => UsuarioApp.desdeJson(item as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
@@ -31,36 +82,73 @@ class HistorialApi {
 
   final ClienteApi cliente;
 
-  Future<List<MovimientoApp>> listar({
+  String _crearQuery({
     String? filtro,
     String? periodo,
+    DateTime? desde,
+    DateTime? hasta,
     String? tipo,
     String? estado,
     String? bicicleteroId,
-  }) async {
+    String? guardiaId,
+    String? origen,
+    int? limite,
+  }) {
     final parametros = <String>[];
 
-    if (filtro != null && filtro.trim().isNotEmpty) {
-      parametros.add('q=${Uri.encodeQueryComponent(filtro.trim())}');
+    void agregar(String llave, String? valor) {
+      if (valor != null && valor.trim().isNotEmpty && valor != 'TODOS') {
+        parametros.add('$llave=${Uri.encodeQueryComponent(valor.trim())}');
+      }
     }
 
-    if (periodo != null && periodo.isNotEmpty) {
-      parametros.add('periodo=$periodo');
+    String fecha(DateTime valor) {
+      final local = DateTime(valor.year, valor.month, valor.day);
+      final mes = local.month.toString().padLeft(2, '0');
+      final dia = local.day.toString().padLeft(2, '0');
+      return '${local.year}-$mes-$dia';
     }
 
-    if (tipo != null && tipo.isNotEmpty && tipo != 'TODOS') {
-      parametros.add('tipo=$tipo');
+    agregar('q', filtro);
+    agregar('periodo', desde == null && hasta == null ? periodo : null);
+    agregar('desde', desde == null ? null : fecha(desde));
+    agregar('hasta', hasta == null ? null : fecha(hasta));
+    agregar('tipo', tipo);
+    agregar('estado', estado);
+    agregar('bicicleteroId', bicicleteroId);
+    agregar('guardiaId', guardiaId);
+    agregar('origen', origen);
+    if (limite != null && limite > 0) {
+      parametros.add('limit=$limite');
     }
 
-    if (estado != null && estado.isNotEmpty && estado != 'TODOS') {
-      parametros.add('estado=$estado');
-    }
+    return parametros.isEmpty ? '' : '?${parametros.join('&')}';
+  }
 
-    if (bicicleteroId != null && bicicleteroId.isNotEmpty) {
-      parametros.add('bicicleteroId=$bicicleteroId');
-    }
-
-    final query = parametros.isEmpty ? '' : '?${parametros.join('&')}';
+  Future<List<MovimientoApp>> listar({
+    String? filtro,
+    String? periodo,
+    DateTime? desde,
+    DateTime? hasta,
+    String? tipo,
+    String? estado,
+    String? bicicleteroId,
+    String? guardiaId,
+    String? origen,
+    int? limite,
+  }) async {
+    final query = _crearQuery(
+      filtro: filtro,
+      periodo: periodo,
+      desde: desde,
+      hasta: hasta,
+      tipo: tipo,
+      estado: estado,
+      bicicleteroId: bicicleteroId,
+      guardiaId: guardiaId,
+      origen: origen,
+      limite: limite,
+    );
     final respuesta = await cliente.get('/historial$query');
     final datos =
         (respuesta['movimientos'] ?? respuesta['datos']) as List<dynamic>;
@@ -69,10 +157,59 @@ class HistorialApi {
         .toList();
   }
 
-  Future<ResumenHistorialApp> resumen() async {
-    final respuesta = await cliente.get('/historial/resumen');
+  Future<ResumenHistorialApp> resumen({
+    String? periodo,
+    DateTime? desde,
+    DateTime? hasta,
+    String? tipo,
+    String? estado,
+    String? bicicleteroId,
+    String? guardiaId,
+    String? origen,
+  }) async {
+    final query = _crearQuery(
+      periodo: periodo,
+      desde: desde,
+      hasta: hasta,
+      tipo: tipo,
+      estado: estado,
+      bicicleteroId: bicicleteroId,
+      guardiaId: guardiaId,
+      origen: origen,
+    );
+    final respuesta = await cliente.get('/historial/resumen$query');
     return ResumenHistorialApp.desdeJson(
       respuesta['resumen'] as Map<String, dynamic>,
     );
+  }
+
+  Future<OpcionesHistorialApp> opciones() async {
+    final respuesta = await cliente.get('/historial/opciones');
+    return OpcionesHistorialApp.desdeJson(respuesta);
+  }
+
+  Future<String> exportarExcel({
+    String? filtro,
+    String? periodo,
+    DateTime? desde,
+    DateTime? hasta,
+    String? tipo,
+    String? estado,
+    String? bicicleteroId,
+    String? guardiaId,
+    String? origen,
+  }) {
+    final query = _crearQuery(
+      filtro: filtro,
+      periodo: periodo,
+      desde: desde,
+      hasta: hasta,
+      tipo: tipo,
+      estado: estado,
+      bicicleteroId: bicicleteroId,
+      guardiaId: guardiaId,
+      origen: origen,
+    );
+    return cliente.getTexto('/historial/exportar-excel$query');
   }
 }

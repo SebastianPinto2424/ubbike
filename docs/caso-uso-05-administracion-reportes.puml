@@ -1,0 +1,52 @@
+@startuml
+title Casos de uso - Administración, historial y reportes
+
+left to right direction
+
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #F8FBFD
+  BorderColor #1E88C8
+  ArrowColor #0B2A44
+}
+
+actor "Guardia" as Guardia
+actor "Administrador" as Admin
+actor "Administrador central" as Central
+
+Central --|> Admin
+
+rectangle "Sistema UBBike" {
+  package "Historial" {
+    usecase "Consultar historial\noperativo" as UC01
+    usecase "Filtrar historial" as UC02
+    usecase "Exportar reporte\nExcel" as UC03
+    usecase "Exportar reporte\nPDF" as UC04
+  }
+
+  package "Administración" {
+    usecase "Gestionar usuarios" as UC05
+    usecase "Supervisar solicitudes\nde guardia" as UC06
+    usecase "Consultar dashboard" as UC07
+  }
+}
+
+Guardia --> UC01
+
+Admin --> UC01
+Admin --> UC02
+Admin --> UC05
+Admin --> UC06
+
+Central --> UC03
+Central --> UC04
+Central --> UC07
+
+UC02 ..> UC01 : <<include>>
+UC03 ..> UC02 : <<include>>
+UC04 ..> UC02 : <<include>>
+UC07 ..> UC01 : <<include>>
+
+@enduml

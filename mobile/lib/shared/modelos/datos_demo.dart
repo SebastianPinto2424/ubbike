@@ -97,7 +97,7 @@ const movimientosDemo = [
     rut: '20.123.456-7',
   ),
   MovimientoDemo(
-    tipo: 'Salida',
+    tipo: 'RETIRO',
     bicicletero: 'Bicicletero cercano a la FACE',
     fecha: 'Ayer, 18:02',
     guardian: 'Guardia C. Munoz',

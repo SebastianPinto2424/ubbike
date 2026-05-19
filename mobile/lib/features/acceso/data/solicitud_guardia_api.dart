@@ -12,10 +12,14 @@ class SolicitudGuardiaApp {
     required this.solicitante,
     required this.creadaEn,
     required this.puedeNotificarGuardia,
+    required this.puedeNotificarGuardiaUsuario,
+    required this.notificacionesGuardia,
     this.guardiaAsignado,
     this.mensaje,
     this.notificadaGuardiaEn,
-    this.acuseReciboEn,
+    this.ultimaNotificacionUsuarioEn,
+    this.respondidaPorGuardiaEn,
+    this.enCaminoEn,
     this.resueltaEn,
     this.segundosParaNotificarGuardia,
     this.guardiasAsignados = const [],
@@ -31,9 +35,13 @@ class SolicitudGuardiaApp {
   final List<UsuarioApp> guardiasAsignados;
   final DateTime creadaEn;
   final DateTime? notificadaGuardiaEn;
-  final DateTime? acuseReciboEn;
+  final DateTime? ultimaNotificacionUsuarioEn;
+  final int notificacionesGuardia;
+  final DateTime? respondidaPorGuardiaEn;
+  final DateTime? enCaminoEn;
   final DateTime? resueltaEn;
   final bool puedeNotificarGuardia;
+  final bool puedeNotificarGuardiaUsuario;
   final int? segundosParaNotificarGuardia;
 
   factory SolicitudGuardiaApp.desdeJson(Map<String, dynamic> json) {
@@ -60,13 +68,22 @@ class SolicitudGuardiaApp {
       notificadaGuardiaEn: json['notificadaGuardiaEn'] == null
           ? null
           : DateTime.parse(json['notificadaGuardiaEn'] as String),
-      acuseReciboEn: json['acuseReciboEn'] == null
+      ultimaNotificacionUsuarioEn: json['ultimaNotificacionUsuarioEn'] == null
           ? null
-          : DateTime.parse(json['acuseReciboEn'] as String),
+          : DateTime.parse(json['ultimaNotificacionUsuarioEn'] as String),
+      notificacionesGuardia: json['notificacionesGuardia'] as int? ?? 0,
+      respondidaPorGuardiaEn: json['respondidaPorGuardiaEn'] == null
+          ? null
+          : DateTime.parse(json['respondidaPorGuardiaEn'] as String),
+      enCaminoEn: json['enCaminoEn'] == null
+          ? null
+          : DateTime.parse(json['enCaminoEn'] as String),
       resueltaEn: json['resueltaEn'] == null
           ? null
           : DateTime.parse(json['resueltaEn'] as String),
       puedeNotificarGuardia: json['puedeNotificarGuardia'] as bool? ?? false,
+      puedeNotificarGuardiaUsuario:
+          json['puedeNotificarGuardiaUsuario'] as bool? ?? false,
       segundosParaNotificarGuardia:
           json['segundosParaNotificarGuardia'] as int?,
     );
@@ -119,6 +136,22 @@ class SolicitudGuardiaApi {
         'tipo': tipo,
         'mensaje': mensaje,
       },
+    );
+  }
+
+  Future<SolicitudGuardiaApp> notificarGuardia({
+    required String solicitudId,
+    String? mensaje,
+  }) async {
+    final respuesta = await cliente.post(
+      '/solicitudes-guardia/$solicitudId/notificar-guardia',
+      body: {
+        if (mensaje != null && mensaje.isNotEmpty) 'mensaje': mensaje,
+      },
+    );
+
+    return SolicitudGuardiaApp.desdeJson(
+      respuesta['solicitud'] as Map<String, dynamic>,
     );
   }
 

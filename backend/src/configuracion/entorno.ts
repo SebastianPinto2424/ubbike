@@ -1,3 +1,4 @@
+import path from 'path';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -109,6 +110,10 @@ export const entorno = {
   },
   app: {
     urlFrontend: process.env.FRONTEND_URL ?? 'http://localhost:8081'
+  },
+  archivos: {
+    directorioUploads: process.env.UPLOADS_DIR ?? path.resolve(process.cwd(), 'uploads'),
+    rutaPublicaUploads: process.env.UPLOADS_PUBLIC_PATH ?? '/uploads'
   },
   datosDemo: {
     habilitados: convertirBooleano(process.env.SEED_DEMO_DATA, ambiente !== 'production')
